@@ -14,6 +14,7 @@ import ceui.lisa.utils.Settings
 import ceui.pixiv.api.model.Illust
 import ceui.pixiv.api.model.MetaPage
 import ceui.pixiv.cache.ObjectPool
+import ceui.pixiv.db.mirror.BookmarkMirrorService
 import ceui.pixiv.feeds.FeedAdapter
 import ceui.pixiv.snapshot.SnapshotManifest
 import ceui.pixiv.snapshot.SnapshotRuntimeCache
@@ -169,6 +170,8 @@ class ArtworkAutoExpandTest {
         ReflectionHelpers.setStaticField(AppDatabase::class.java, "INSTANCE", database)
         network = NetworkStateManager(app)
         ReflectionHelpers.setField(app, "networkStateManager", network)
+        // The online source reconciles viewer state through appServices().bookmarkMirror.
+        ReflectionHelpers.setField(app, "bookmarkMirror", BookmarkMirrorService(app))
         Shaft.sSettings.isArtworkV3AutoExpandMultiPage = autoExpand
         ObjectPool.update(Illust(
             id = 1L, type = "illust", page_count = 3, width = 1200, height = 1800,
