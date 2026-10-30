@@ -29,12 +29,14 @@ internal fun Fragment.showJxlArchiveDialog(illust: Illust) {
                 }
             }
             dialog.dismiss()
+            JxlArchiveDiagnostics.success(illust.id)
             Common.showToast(appContext.getString(R.string.jxl_archive_success))
         } catch (ce: CancellationException) {
             dialog.dismiss()
             throw ce
         } catch (error: Exception) {
             dialog.dismiss()
+            JxlArchiveDiagnostics.failure(illust.id, error)
             Common.showToast(appContext.getString(R.string.jxl_archive_failed, error.message ?: ""))
         }
     }

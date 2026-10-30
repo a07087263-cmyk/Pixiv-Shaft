@@ -55,6 +55,7 @@ private class AvifCompressingFetcher(
     @Volatile private var delivered: InputStream? = null
 
     override fun loadData(priority: Priority, callback: DataFetcher.DataCallback<in InputStream>) {
+        AvifCacheDiagnostics.networkAttempt()
         this.callback = callback
         delegate.loadData(priority, object : DataFetcher.DataCallback<InputStream> {
             override fun onDataReady(data: InputStream?) {
@@ -86,10 +87,15 @@ private class AvifCompressingFetcher(
             bitmap = BitmapFactory.decodeFile(source.absolutePath, options)
             val image = bitmap
             var useAvif = false
-            if (image != null && image.width >= 64 && image.height >= 64 &&
-                image.width.toLong() * image.height <= MAX_PIXELS && hasNormalExif(source) &&
-                !isAnimatedImage(source)
-            ) {
+            val ineligibleReason = when {
+                image == null -> "BitmapFactory 无法解码源图片"
+                image.width < 64 || image.height < 64 -> "图片小于 64×64"
+                image.width.toLong() * image.height > MAX_PIXELS -> "图片超过像素上限"
+                !hasNormalExif(source) -> "EXIF 方向需要保留原图"
+                isAnimatedImage(source) -> "动态图片"
+                else -> null
+            }
+            if (image != null && ineligibleReason == null) {
                 val profile = AvifCacheProfile.fromId(Shaft.sSettings.avifCacheProfile)
                 try {
                     NativeImageCodec.encodeAvif(image, avifFile, profile.crf, profile.preset)
@@ -106,6 +112,8 @@ private class AvifCompressingFetcher(
                     AvifCacheDiagnostics.fallback(error.javaClass.simpleName)
                     Timber.tag(TAG).w(error, "AVIF cache encode failed; keeping source")
                 }
+            } else {
+                AvifCacheDiagnostics.skipped(ineligibleReason ?: "未知图片格式")
             }
             if (cancelled) return
             val chosen = if (useAvif) avifFile else sourceFile

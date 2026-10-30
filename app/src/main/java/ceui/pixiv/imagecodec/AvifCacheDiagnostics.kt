@@ -7,13 +7,11 @@ object AvifCacheDiagnostics {
     private val successes = AtomicLong()
     private val fallbacks = AtomicLong()
     private val avifDecodes = AtomicLong()
+    private val networkAttempts = AtomicLong()
+    private val skipped = AtomicLong()
 
     @Volatile var last: String = "本次启动还没有 AVIF 转换记录"
         private set
-
-    val successCount: Long get() = successes.get()
-    val fallbackCount: Long get() = fallbacks.get()
-    val avifDecodeCount: Long get() = avifDecodes.get()
 
     fun success(width: Int, height: Int, sourceBytes: Long, avifBytes: Long, profile: AvifCacheProfile) {
         successes.incrementAndGet()
@@ -30,5 +28,16 @@ object AvifCacheDiagnostics {
         avifDecodes.incrementAndGet()
     }
 
-    fun summary(): String = "AVIF 成功 $successCount 次，保留原图 $fallbackCount 次；AVIF 解码 $avifDecodeCount 次\n$last"
+    fun networkAttempt() {
+        networkAttempts.incrementAndGet()
+    }
+
+    fun skipped(reason: String) {
+        skipped.incrementAndGet()
+        last = "未进入编码 · $reason"
+    }
+
+    fun summary(): String =
+        "网络进入 $networkAttempts 次，AVIF 成功 $successes 次，保留原图 $fallbacks 次，跳过 $skipped 次；" +
+            "AVIF 解码 $avifDecodes 次\n$last"
 }

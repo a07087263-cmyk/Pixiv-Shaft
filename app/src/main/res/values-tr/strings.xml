@@ -3537,4 +3537,32 @@
     <string name="chrome_custom_tabs_desc">Chrome mevcut olduğunda web bağlantılarını açmak için Chrome Custom Tabs kullanın</string>
     <string name="chrome_custom_tabs_not_found">Chrome bulunamadı, otomatik olarak devre dışı bırakıldı</string>
     <string name="open_with_chrome">Chrome ile aç</string>
+    <!-- AVIF/JXL image engines -->
+    <string name="jxl_archive_already_exists">This artwork already has a JXL archive; no duplicate offline copy is needed.</string>
+    <string name="jxl_archive_title">JXL lossless archives</string>
+    <string name="jxl_archive_create">Create JXL lossless archive</string>
+    <string name="jxl_archive_preparing">Preparing original images…</string>
+    <string name="jxl_archive_progress">Archiving losslessly %1$d / %2$d</string>
+    <string name="jxl_archive_success">JXL lossless archive created</string>
+    <string name="jxl_archive_failed">JXL archive failed: %1$s</string>
+    <string name="jxl_archive_empty">No JXL archives yet. Create one from an artwork menu.</string>
+    <string name="jxl_archive_list_subtitle">%1$d pages · %2$s</string>
+    <string name="jxl_archive_delete_confirm">Delete this local JXL archive? Your bookmark will not be changed.</string>
+    <string name="jxl_archive_page_indicator">%1$d / %2$d</string>
+    <string name="setting_avif_cache">AVIF cache compression</string>
+    <string name="setting_avif_cache_desc">Transcode new cache entries to AVIF; keep originals on failure or larger output</string>
+    <string name="setting_avif_cache_profile">AVIF compression profile</string>
+    <string name="setting_avif_cache_diagnostics">AVIF conversion diagnostics</string>
+    <string name="setting_avif_cache_diagnostics_empty">No AVIF conversion recorded in this session</string>
+    <string name="setting_jxl_archive_bookmark">Create JXL archive on bookmark</string>
+    <string name="setting_jxl_archive_bookmark_desc">Download originals and save losslessly in the shared snapshot library</string>
+    <string name="setting_jxl_archive_effort">JXL encoding effort</string>
+    <string name="setting_jxl_archive_manage">Manage JXL lossless archives</string>
+    <string name="avif_profile_quality">Quality first (CRF18 / preset 6)</string>
+    <string name="avif_profile_balanced">Balanced (CRF18 / preset 8)</string>
+    <string name="avif_profile_small">Smaller size (CRF24 / preset 10)</string>
+    <string name="avif_profile_extreme">Extreme compression (CRF30 / preset 10)</string>
+    <string name="jxl_effort_fast">Speed first (effort 3)</string>
+    <string name="jxl_effort_balanced">Balanced (effort 5)</string>
+    <string name="jxl_effort_small">Compression first (effort 7)</string>
 </resources>

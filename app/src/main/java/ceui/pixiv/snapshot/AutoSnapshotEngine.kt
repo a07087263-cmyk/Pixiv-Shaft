@@ -87,6 +87,8 @@ object AutoSnapshotEngine {
     /** 由 PixivActionQueue 在收藏请求被服务端确认成功后调用（事件驱动）。 */
     fun onBookmarkConfirmed(illust: Illust) {
         if (!Shaft.sSettings.isAutoSnapshotOnBookmark) return
+        // JXL is the preferred bookmark writer when enabled; never race two copies.
+        if (Shaft.sSettings.isJxlArchiveOnBookmark) return
         launchAutoSnapshot(illust, signal = null)
     }
 

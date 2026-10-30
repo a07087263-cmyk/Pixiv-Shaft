@@ -56,12 +56,17 @@ object JxlArchiveEngine {
             try {
                 val app = Shaft.getContext()
                 if (app.appServices().networkStateManager.networkState.value?.isOnline != true) return@launch
-                if (hasRegularSnapshot(app, illust.id)) return@launch
+                if (hasRegularSnapshot(app, illust.id)) {
+                    JxlArchiveDiagnostics.failure(illust.id, JxlArchiveException("已有普通离线快照，未重复创建"))
+                    return@launch
+                }
                 archive(app, illust, automatic = true)
+                JxlArchiveDiagnostics.success(illust.id)
                 Timber.tag(TAG).i("archive generated, illustId=%d", illust.id)
             } catch (ce: CancellationException) {
                 throw ce
             } catch (error: Exception) {
+                JxlArchiveDiagnostics.failure(illust.id, error)
                 Timber.tag(TAG).w(error, "archive failed, illustId=%d", illust.id)
             }
         }

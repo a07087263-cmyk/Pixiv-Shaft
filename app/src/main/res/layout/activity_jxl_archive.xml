@@ -15,6 +15,14 @@
         app:title="@string/jxl_archive_title"
         app:titleTextColor="@android:color/white" />
 
+    <TextView
+        android:id="@+id/diagnostics"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:padding="12dp"
+        android:textColor="@color/v3_text_2"
+        android:textSize="13sp" />
+
     <FrameLayout
         android:layout_width="match_parent"
         android:layout_height="match_parent">

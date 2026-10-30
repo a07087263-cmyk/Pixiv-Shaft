@@ -42,6 +42,7 @@ class JxlArchiveActivity : AppCompatActivity() {
 
     override fun onResume() {
         super.onResume()
+        findViewById<TextView>(R.id.diagnostics).text = JxlArchiveDiagnostics.last
         reload()
     }
 

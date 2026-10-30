@@ -3856,7 +3856,7 @@
     <string name="setting_avif_cache_diagnostics">AVIF 转换诊断</string>
     <string name="setting_avif_cache_diagnostics_empty">本次启动还没有 AVIF 转换记录</string>
     <string name="setting_jxl_archive_bookmark">收藏时创建 JXL 无损存档</string>
-    <string name="setting_jxl_archive_bookmark_desc">下载原始图片并无损保存，独立于此前的离线快照</string>
+    <string name="setting_jxl_archive_bookmark_desc">下载原始图片并无损保存，与离线快照共用同一存档</string>
     <string name="setting_jxl_archive_effort">JXL 编码档位</string>
     <string name="setting_jxl_archive_manage">管理 JXL 无损存档</string>
     <string name="avif_profile_quality">质量优先（CRF18 / preset 6）</string>
