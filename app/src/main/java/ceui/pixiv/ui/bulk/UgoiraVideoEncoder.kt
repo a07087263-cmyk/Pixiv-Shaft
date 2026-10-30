@@ -28,12 +28,12 @@ import kotlin.coroutines.coroutineContext
 import kotlin.math.roundToInt
 
 /**
- * 帧序列 → H.264 mp4 压制器（`MediaCodec` 硬件编码 + `MediaMuxer` 封装，零第三方依赖、
- * 不引 FFmpeg，APK 增量为 0）。
+ * 帧序列 → MP4 压制器。支持 AV1 解码的 Android 10+ 设备优先走 [SvtAv1Encoder]；
+ * 老设备或 AV1 编码/封装失败时，走这里的 `MediaCodec` H.264 硬件编码 + `MediaMuxer` 回退。
  *
  * **为什么要有它**:[FrameSequencePlayer] 是纯 CPU 逐帧解 JPEG,50fps(4x 补帧)下解码
  * 预算只有 20ms,机器一降频就跟不上,只能按时间轴丢帧保时长 —— 动作是对的,但看起来一顿一顿。
- * 换成 mp4 后解码走硬件解码器(同样的画面负载不到 CPU 的零头),配合 [UgoiraVideoPlayer]
+ * 换成 mp4 后走平台视频解码器(H.264 通常硬解,AV1 取决于设备),配合 [UgoiraVideoPlayer]
  * 的「按 PTS 定时 releaseOutputBuffer」呈现,**每一帧都会送显,不再有丢帧策略**。
  *
  * 关键实现点:
@@ -87,7 +87,7 @@ internal object UgoiraVideoEncoder {
     private const val DRAIN_EOS_TIMEOUT_MS = 10_000L
 
     /**
-     * 本会话是否已确认这台机器压不出 mp4(创建/配置编码器就失败)。这类失败是设备级的,
+     * 本会话是否已确认这台机器压不出 H.264 mp4(创建/配置编码器就失败)。这类失败是设备级的,
      * 条条复发 —— 标记后直接跳过压制,别让每条动图都白等一次编码器初始化。
      * 内容级失败(某张帧解不开、磁盘满)不置位。
      */
@@ -107,6 +107,21 @@ internal object UgoiraVideoEncoder {
      * 取消检查用非挂起的 [kotlinx.coroutines.ensureActive]。
      */
     suspend fun encode(
+        target: File,
+        files: List<File>,
+        delaysMs: List<Int>,
+        onProgress: (Int) -> Unit = {},
+    ): File? {
+        // AV1 is preferred only when this device also has a decoder for the cached result.
+        // Any encoder/muxer failure falls through to the proven hardware H.264 path; callers
+        // still retain their final GIF fallback, so introducing SVT-AV1 cannot remove exports.
+        if (SvtAv1Encoder.isSupported()) {
+            SvtAv1Encoder.encode(target, files, delaysMs, onProgress)?.let { return it }
+        }
+        return encodeH264(target, files, delaysMs, onProgress)
+    }
+
+    private suspend fun encodeH264(
         target: File,
         files: List<File>,
         delaysMs: List<Int>,

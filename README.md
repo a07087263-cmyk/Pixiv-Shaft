@@ -13,6 +13,10 @@
 
 [![Build Status](https://img.shields.io/github/actions/workflow/status/CeuiLiSA/Pixiv-Shaft/gradle.yml?style=flat-square&label=build)](https://github.com/CeuiLiSA/Pixiv-Shaft/actions)
 [![Issues](https://img.shields.io/github/issues/CeuiLiSA/Pixiv-Shaft?style=flat-square&color=brightgreen)](https://github.com/CeuiLiSA/Pixiv-Shaft/issues)
+
+## Fork 说明
+
+本仓库是 [CeuiLiSA/Pixiv-Shaft](https://github.com/CeuiLiSA/Pixiv-Shaft) 的 fork，改动范围仅限 ugoira 动图 MP4 压制：引入 SVT-AV1，修正色彩转换，AV1 不可用时回退 H.264。压制速度更快，在 Snapdragon 8 Gen 3 上接近准实时，输出体积更小。
 [![Issues Closed](https://img.shields.io/github/issues-closed/CeuiLiSA/Pixiv-Shaft?style=flat-square&color=9466ff)](https://github.com/CeuiLiSA/Pixiv-Shaft/issues?q=is%3Aissue+is%3Aclosed)
 [![Last Commit](https://img.shields.io/github/last-commit/CeuiLiSA/Pixiv-Shaft?style=flat-square)](https://github.com/CeuiLiSA/Pixiv-Shaft/commits)
 [![Code Size](https://img.shields.io/github/languages/code-size/CeuiLiSA/Pixiv-Shaft?style=flat-square)](https://github.com/CeuiLiSA/Pixiv-Shaft)
