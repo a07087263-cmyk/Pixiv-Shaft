@@ -1,0 +1,115 @@
+name: Sync upstream and release new tags
+
+on:
+  schedule:
+    - cron: '0 0 * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: upstream-sync-release
+  cancel-in-progress: false
+
+jobs:
+  sync:
+    name: Merge upstream and select an unpublished tag
+    runs-on: ubuntu-24.04
+    outputs:
+      build: ${{ steps.select.outputs.build }}
+      tag: ${{ steps.select.outputs.tag }}
+    steps:
+      - name: Checkout fork
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          submodules: true
+
+      - name: Merge upstream classic
+        run: |
+          set -euo pipefail
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git remote add upstream https://github.com/CeuiLiSA/Pixiv-Shaft.git
+          git fetch upstream classic --tags --prune
+          git checkout -B classic origin/classic
+          git merge --no-edit upstream/classic
+          git push origin classic
+
+      - name: Select latest unpublished upstream tag
+        id: select
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          echo 'build=false' >> "$GITHUB_OUTPUT"
+          TAG="$(git tag --list 'v*.*.*' --sort=-v:refname | head -n 1)"
+          if [[ -z "$TAG" ]]; then
+            echo 'No upstream version tags found.'
+            exit 0
+          fi
+          echo "tag=$TAG" >> "$GITHUB_OUTPUT"
+          if gh release view "$TAG" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            echo "Release $TAG already exists; no build needed."
+            exit 0
+          fi
+
+          AV1_COMMIT="$(git log classic --grep='^feat: add SVT-AV1 ugoira encoding$' --format=%H -1)"
+          if [[ -z "$AV1_COMMIT" ]]; then
+            echo 'The SVT-AV1 commit was not found on classic.' >&2
+            exit 1
+          fi
+          git checkout --detach "$TAG"
+          git cherry-pick "$AV1_COMMIT"
+          # The release must contain both the exact upstream tag and the AV1 patch.
+          git push --force origin "HEAD:refs/tags/$TAG"
+          echo 'build=true' >> "$GITHUB_OUTPUT"
+
+  release:
+    name: Build and publish a new tag
+    if: needs.sync.outputs.build == 'true'
+    needs: sync
+    runs-on: ubuntu-24.04
+    timeout-minutes: 90
+    steps:
+      - name: Checkout patched tag
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.sync.outputs.tag }}
+          fetch-depth: 0
+          submodules: true
+
+      - name: Set up Android build
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v4
+
+      - name: Build Release APK
+        env:
+          SHAFT_EVENTS_HMAC: ${{ secrets.SHAFT_EVENTS_HMAC }}
+        run: |
+          chmod +x gradlew
+          ./gradlew :app:assembleGithubRelease --no-daemon --stacktrace
+
+      - name: Publish GitHub Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ needs.sync.outputs.tag }}
+        run: |
+          set -euo pipefail
+          APK="PixShaft_${TAG#v}_AV1.apk"
+          cp app/build/outputs/apk/github/release/app-github-release.apk "$APK"
+          sha256sum "$APK" > "$APK.sha256"
+          gh release create "$TAG" "$APK" "$APK.sha256" \
+            --repo "$GITHUB_REPOSITORY" \
+            --title "$TAG SVT-AV1" \
+            --notes "上游 $TAG + SVT-AV1 动图压制。" \
+            --latest
