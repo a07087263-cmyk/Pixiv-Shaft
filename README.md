@@ -16,7 +16,33 @@
 
 ## Fork 说明
 
-本仓库是 [CeuiLiSA/Pixiv-Shaft](https://github.com/CeuiLiSA/Pixiv-Shaft) 的 fork，改动范围仅限 ugoira 动图 MP4 压制：引入 SVT-AV1，修正色彩转换，AV1 不可用时回退 H.264。压制速度更快，在 Snapdragon 8 Gen 3 上接近准实时，输出体积更小。
+本仓库是 [CeuiLiSA/Pixiv-Shaft](https://github.com/CeuiLiSA/Pixiv-Shaft) 的 fork，主要增强如下。
+
+### Ugoira AV1 压制
+
+引入 SVT-AV1，修正色彩转换，AV1 不可用时回退 H.264。压制速度更快，输出体积更小。
+
+### AVIF 缓存压缩
+
+- 独立开关，默认关闭，只影响开启后新下载的缓存，不重写旧缓存。
+- 默认 **CRF 18 / preset 8**，另有质量优先、更小体积和极限压缩档位。
+- 编码结果必须通过完整 AVIF 解码验证；失败、动画、超大图或 AVIF 更大时保留原图。
+- “设置 → 试验性 → AVIF 转换诊断”可查看实际 `image/avif` 格式、压缩前后字节数、成功/回退次数和真实解码次数。
+
+### JXL 收藏无损存档
+
+- 可在收藏成功后自动创建，也可从作品菜单手动创建；独立开关，默认关闭。
+- 直接下载原始图片，JPEG 使用无损转封装，其他支持的图片使用无损 JXL 编码，并逐页完整解码校验。
+- 与原有离线快照**共用同一份收藏存档**，不会因普通快照、自动快照和 JXL 各存一份而重复占用空间。
+- 应用内查看器直接解码 JXL；JPEG 来源可还原导出原 JPEG，其他页面可导出 PNG，多页作品导出 ZIP。
+- 存档列表显示原图大小、JXL 大小和节省比例；默认 effort 5，可选 effort 3 / 5 / 7。
+- 当前真机样本中，单页 JPEG 转 JXL 实测约节约 **18%–22%** 空间。实际比例随图片内容变化，无损 JXL 并不保证所有格式和图片都更小。
+
+实现说明见 [AVIF/JXL 图像引擎文档](./docs/avif-jxl-image-engines.md)。
+
+---
+
+## 上游 Pixiv-Shaft README
 [![Issues Closed](https://img.shields.io/github/issues-closed/CeuiLiSA/Pixiv-Shaft?style=flat-square&color=9466ff)](https://github.com/CeuiLiSA/Pixiv-Shaft/issues?q=is%3Aissue+is%3Aclosed)
 [![Last Commit](https://img.shields.io/github/last-commit/CeuiLiSA/Pixiv-Shaft?style=flat-square)](https://github.com/CeuiLiSA/Pixiv-Shaft/commits)
 [![Code Size](https://img.shields.io/github/languages/code-size/CeuiLiSA/Pixiv-Shaft?style=flat-square)](https://github.com/CeuiLiSA/Pixiv-Shaft)
