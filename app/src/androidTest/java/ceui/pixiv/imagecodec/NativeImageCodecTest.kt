@@ -25,7 +25,9 @@ class NativeImageCodecTest {
         val decoded = NativeImageCodec.decode(output.readBytes())
         assertEquals(65, decoded.width)
         assertEquals(67, decoded.height)
-        assertTrue(source.sameAs(decoded))
+        for (y in 0 until source.height) for (x in 0 until source.width) {
+            assertEquals("pixel $x,$y", source.getPixel(x, y), decoded.getPixel(x, y))
+        }
         source.recycle(); decoded.recycle(); output.delete()
     }
 

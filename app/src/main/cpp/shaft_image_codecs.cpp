@@ -419,6 +419,11 @@ bool encodeJxlJpeg(const uint8_t* data, size_t size, const std::string& path, in
         error = "JxlEncoderCreate failed";
         return false;
     }
+    if (JxlEncoderUseBoxes(encoder.value) != JXL_ENC_SUCCESS ||
+        JxlEncoderStoreJPEGMetadata(encoder.value, JXL_TRUE) != JXL_ENC_SUCCESS) {
+        error = "could not enable JPEG reconstruction metadata";
+        return false;
+    }
     JxlEncoderFrameSettings* frame = JxlEncoderFrameSettingsCreate(encoder.value, nullptr);
     if (frame == nullptr ||
         JxlEncoderFrameSettingsSetOption(frame, JXL_ENC_FRAME_SETTING_EFFORT, effort) != JXL_ENC_SUCCESS ||
