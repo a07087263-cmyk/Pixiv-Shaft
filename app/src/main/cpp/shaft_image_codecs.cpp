@@ -193,7 +193,7 @@ jobject toBitmap(JNIEnv* env, const RgbaImage& source, int sampleSize) {
         "(IILandroid/graphics/Bitmap$Config;)Landroid/graphics/Bitmap;");
     jobject bitmap = env->CallStaticObjectMethod(bitmapClass, create, width, height, config);
     if (bitmap == nullptr || env->ExceptionCheck()) return nullptr;
-    env->CallVoidMethod(bitmap, env->GetMethodID(bitmapClass, "setPremultiplied", "(Z)V"), JNI_FALSE);
+    env->CallVoidMethod(bitmap, env->GetMethodID(bitmapClass, "setPremultiplied", "(Z)V"), JNI_TRUE);
     AndroidBitmapInfo info{};
     void* raw = nullptr;
     if (AndroidBitmap_getInfo(env, bitmap, &info) != ANDROID_BITMAP_RESULT_SUCCESS ||
@@ -218,7 +218,14 @@ jobject toBitmap(JNIEnv* env, const RgbaImage& source, int sampleSize) {
                     ++count;
                 }
             }
-            for (int c = 0; c < 4; ++c) row[x * 4 + c] = static_cast<uint8_t>(sums[c] / std::max(1U, count));
+            const uint32_t divisor = std::max(1U, count);
+            const uint32_t alpha = sums[3] / divisor;
+            for (int c = 0; c < 3; ++c) {
+                const uint32_t straight = sums[c] / divisor;
+                // Android Canvas requires premultiplied output. JXL/libavif decode to straight alpha.
+                row[x * 4 + c] = static_cast<uint8_t>((straight * alpha + 127) / 255);
+            }
+            row[x * 4 + 3] = static_cast<uint8_t>(alpha);
         }
     }
     AndroidBitmap_unlockPixels(env, bitmap);

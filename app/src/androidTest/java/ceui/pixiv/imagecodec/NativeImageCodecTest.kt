@@ -2,6 +2,7 @@ package ceui.pixiv.imagecodec
 
 import android.graphics.Bitmap
 import android.graphics.Color
+import android.graphics.Canvas
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
 import org.junit.Assert.assertEquals
@@ -29,6 +30,16 @@ class NativeImageCodecTest {
     }
 
     @Test
+    fun decodedTransparentBitmapCanBeDrawnOnCanvas() {
+        val source = sampleBitmap(transparentCorner = true)
+        val output = File(context.cacheDir, "codec-test-alpha.jxl")
+        NativeImageCodec.encodeJxl(source, output, 3)
+        val decoded = NativeImageCodec.decode(output.readBytes())
+        Canvas(Bitmap.createBitmap(65, 67, Bitmap.Config.ARGB_8888)).drawBitmap(decoded, 0f, 0f, null)
+        source.recycle(); decoded.recycle(); output.delete()
+    }
+
+    @Test
     fun jpegTranscodeAndAvifProduceReadableFiles() {
         val source = sampleBitmap()
         val jpeg = java.io.ByteArrayOutputStream().also {
@@ -45,9 +56,9 @@ class NativeImageCodecTest {
         source.recycle(); jxl.delete(); avif.delete()
     }
 
-    private fun sampleBitmap(): Bitmap = Bitmap.createBitmap(65, 67, Bitmap.Config.ARGB_8888).apply {
+    private fun sampleBitmap(transparentCorner: Boolean = false): Bitmap = Bitmap.createBitmap(65, 67, Bitmap.Config.ARGB_8888).apply {
         for (y in 0 until 67) for (x in 0 until 65) {
-            setPixel(x, y, Color.argb(if (x == 0 && y == 0) 128 else 255,
+            setPixel(x, y, Color.argb(if (transparentCorner && x == 0 && y == 0) 128 else 255,
                 (x * 4) % 256, (y * 4) % 256, (x + y) % 256))
         }
     }
