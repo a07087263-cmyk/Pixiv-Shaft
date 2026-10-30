@@ -16,6 +16,8 @@ const val SNAPSHOT_ASSETS_JSON = "assets.json"
 const val SNAPSHOT_UGOIRA_DIR = "ugoira"
 const val AUTO_SNAPSHOT_MANIFEST = "auto_manifest.json"
 const val AUTO_SNAPSHOT_SCHEMA_VERSION = 1
+const val SNAPSHOT_STORAGE_ORIGINAL = "ORIGINAL"
+const val SNAPSHOT_STORAGE_JXL = "JXL"
 
 /** 单个离线快照的 manifest，v1 只含手动快照所需的字段。 */
 data class SnapshotManifest(
@@ -36,6 +38,7 @@ data class SnapshotManifest(
     val coverPath: String? = null,
     val fileCount: Int = 0,
     val totalSize: Long = 0L,
+    val storageFormat: String = SNAPSHOT_STORAGE_ORIGINAL,
 )
 
 /** 自动快照的 manifest，v1 只收录自动生成所需的展示/转正字段。 */
@@ -57,6 +60,7 @@ data class AutoSnapshotManifest(
     val coverPath: String? = null,
     val fileCount: Int = 0,
     val totalSize: Long = 0L,
+    val storageFormat: String = SNAPSHOT_STORAGE_ORIGINAL,
 )
 
 /** 管理页展示自动快照时使用的轻量摘要。 */

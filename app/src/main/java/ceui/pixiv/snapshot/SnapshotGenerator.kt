@@ -72,14 +72,16 @@ object SnapshotGenerator {
         freshDetail: Boolean = false,
         onProgress: suspend (String) -> Unit = {},
     ): SnapshotManifest = withContext(Dispatchers.IO) {
+        if (!ArchiveReservation.tryReserve(illust.id)) throw SnapshotException("该作品正在创建其他存档")
+        try {
         val content = generateContent(
-            context = context,
-            illust = illust,
-            includeComments = includeComments,
-            includeOriginal = includeOriginal,
-            freshDetail = freshDetail,
-            onProgress = onProgress,
-        )
+                context = context,
+                illust = illust,
+                includeComments = includeComments,
+                includeOriginal = includeOriginal,
+                freshDetail = freshDetail,
+                onProgress = onProgress,
+            )
         try {
             val manifest = content.toSnapshotManifest(includeComments, includeOriginal)
             writeJson(content.snapshotDir, SNAPSHOT_MANIFEST, manifest)
@@ -87,6 +89,9 @@ object SnapshotGenerator {
         } catch (e: Exception) {
             content.snapshotDir.deleteRecursively()
             throw e
+        }
+        } finally {
+            ArchiveReservation.release(illust.id)
         }
     }
 
@@ -96,14 +101,16 @@ object SnapshotGenerator {
         includeOriginal: Boolean = false,
         onProgress: suspend (String) -> Unit = {},
     ): AutoSnapshotManifest = withContext(Dispatchers.IO) {
+        if (!ArchiveReservation.tryReserve(illust.id)) throw SnapshotException("该作品正在创建其他存档")
+        try {
         val content = generateContent(
-            context = context,
-            illust = illust,
-            includeComments = false,
-            includeOriginal = includeOriginal,
-            freshDetail = false,
-            onProgress = onProgress,
-        )
+                context = context,
+                illust = illust,
+                includeComments = false,
+                includeOriginal = includeOriginal,
+                freshDetail = false,
+                onProgress = onProgress,
+            )
         try {
             val manifest = content.toAutoSnapshotManifest(includeOriginal)
             writeJson(content.snapshotDir, AUTO_SNAPSHOT_MANIFEST, manifest)
@@ -111,6 +118,9 @@ object SnapshotGenerator {
         } catch (e: Exception) {
             content.snapshotDir.deleteRecursively()
             throw e
+        }
+        } finally {
+            ArchiveReservation.release(illust.id)
         }
     }
 
@@ -136,6 +146,9 @@ object SnapshotGenerator {
         onProgress: suspend (String) -> Unit,
     ): SnapshotContent = withContext(Dispatchers.IO) {
         val appContext = context.applicationContext
+        if (ceui.pixiv.jxlarchive.JxlArchiveRepository.read(appContext, illust.id) != null) {
+            throw SnapshotException(appContext.getString(R.string.jxl_archive_already_exists))
+        }
         val snapshotId = UUID.randomUUID().toString()
         val snapshotDir = SnapshotRepository.createSnapshotDir(appContext, snapshotId)
         // 进度文案是给用户看的,统一走资源;领域层不硬编码任何一种语言的 UI 串。

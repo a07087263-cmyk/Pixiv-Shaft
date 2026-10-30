@@ -3839,6 +3839,7 @@
     <string name="open_with_chrome">使用Chrome打开</string>
     <string name="debug_update_sheet_title" translatable="false">调试更新弹窗</string>
     <string name="debug_update_sheet_desc" translatable="false">调试用：弹出更新弹窗（支持测试无安装包时的外部打开）</string>
+    <string name="jxl_archive_already_exists">该作品已有 JXL 存档，无需重复离线化</string>
     <string name="jxl_archive_title">JXL 无损存档</string>
     <string name="jxl_archive_create">创建 JXL 无损存档</string>
     <string name="jxl_archive_preparing">准备原始图片…</string>
@@ -3852,6 +3853,8 @@
     <string name="setting_avif_cache">AVIF 缓存压缩</string>
     <string name="setting_avif_cache_desc">新缓存图片优先转码为 AVIF；失败或更大时保留原图</string>
     <string name="setting_avif_cache_profile">AVIF 压缩档位</string>
+    <string name="setting_avif_cache_diagnostics">AVIF 转换诊断</string>
+    <string name="setting_avif_cache_diagnostics_empty">本次启动还没有 AVIF 转换记录</string>
     <string name="setting_jxl_archive_bookmark">收藏时创建 JXL 无损存档</string>
     <string name="setting_jxl_archive_bookmark_desc">下载原始图片并无损保存，独立于此前的离线快照</string>
     <string name="setting_jxl_archive_effort">JXL 编码档位</string>

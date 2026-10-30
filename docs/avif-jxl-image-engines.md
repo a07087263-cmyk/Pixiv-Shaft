@@ -26,12 +26,16 @@ readable. Sketch uses the same native decoding library for the full-screen viewe
 `JxlArchiveEngine` downloads original URLs directly, deliberately bypassing any AVIF-compressed
 cache. JPEG uses libjxl's lossless JPEG-frame transcoding. Other supported images are decoded to
 straight-alpha RGBA and encoded as lossless JXL. Every page must pass a full native decode before
-its staging directory is atomically published as `files/ShaftJxlArchives/<illustId>/`.
-Sixteen-bit PNG currently fails explicitly instead of being silently reduced to eight bits.
-ugoira is outside this engine.
+its staging directory is atomically published inside the unified `ShaftSnapshots` library.
+Regular, automatic, and JXL archives check each other and use a cross-codec creation reservation,
+so one artwork cannot acquire three independent copies. Sixteen-bit PNG currently fails explicitly
+instead of being silently reduced to eight bits. ugoira is outside this engine.
 
-`JxlArchiveActivity` lists and deletes archives. `JxlArchiveViewerActivity` displays all pages
-with the existing Sketch zoom viewer and the native JXL decoder.
+The existing snapshot manager and `JxlArchiveActivity` read the same files. `JxlArchiveViewerActivity`
+displays all pages with the existing Sketch zoom viewer and the native JXL decoder.
+
+`AvifCacheDiagnostics` exposes the verified MIME type, source/output byte counts, profile, and
+success/fallback counters in experimental settings and in the `AvifCache` log stream.
 
 ## Dependencies and validation
 

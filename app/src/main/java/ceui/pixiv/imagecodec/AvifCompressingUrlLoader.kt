@@ -94,7 +94,16 @@ private class AvifCompressingFetcher(
                 try {
                     NativeImageCodec.encodeAvif(image, avifFile, profile.crf, profile.preset)
                     useAvif = !cancelled && avifFile.length() in 1 until sourceFile.length() && NativeImageCodec.canDecode(avifFile)
+                    if (useAvif) {
+                        val probe = NativeImageCodec.probe(avifFile.readBytes())
+                        AvifCacheDiagnostics.success(image.width, image.height, sourceFile.length(), avifFile.length(), profile)
+                        Timber.tag(TAG).i("AVIF verified %s %dx%d %d -> %d bytes CRF%d preset%d",
+                            probe.mimeType, image.width, image.height, sourceFile.length(), avifFile.length(), profile.crf, profile.preset)
+                    } else {
+                        AvifCacheDiagnostics.fallback("编码结果更大或未通过 AVIF 完整解码")
+                    }
                 } catch (error: Throwable) {
+                    AvifCacheDiagnostics.fallback(error.javaClass.simpleName)
                     Timber.tag(TAG).w(error, "AVIF cache encode failed; keeping source")
                 }
             }

@@ -34,6 +34,7 @@ class NativeGlideInputStreamDecoder(private val bitmapPool: BitmapPool) : Resour
     ): Resource<Bitmap>? {
         val bytes = source.readBytes()
         val probe = NativeImageCodec.probe(bytes)
+        if (probe.format == NativeImageCodec.FORMAT_AVIF) AvifCacheDiagnostics.decodedAvif()
         return BitmapResource.obtain(NativeImageCodec.decode(bytes, sampleSize(probe, width, height)), bitmapPool)
     }
 }
@@ -49,6 +50,7 @@ class NativeGlideByteBufferDecoder(private val bitmapPool: BitmapPool) : Resourc
     override fun decode(source: ByteBuffer, width: Int, height: Int, options: Options): Resource<Bitmap>? {
         val bytes = ByteBufferUtil.toBytes(source)
         val probe = NativeImageCodec.probe(bytes)
+        if (probe.format == NativeImageCodec.FORMAT_AVIF) AvifCacheDiagnostics.decodedAvif()
         return BitmapResource.obtain(NativeImageCodec.decode(bytes, sampleSize(probe, width, height)), bitmapPool)
     }
 }

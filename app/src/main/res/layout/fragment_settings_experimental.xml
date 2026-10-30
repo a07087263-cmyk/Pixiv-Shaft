@@ -168,6 +168,20 @@
                 </RelativeLayout>
 
                 <RelativeLayout
+                    android:id="@+id/avif_cache_diagnostics_rela"
+                    style="@style/M3SetRow"
+                    android:layout_marginTop="14dp"
+                    android:background="@drawable/wit_row_single">
+                    <LinearLayout style="@style/M3SetTexts">
+                        <TextView style="@style/M3SetTitle" android:text="@string/setting_avif_cache_diagnostics" />
+                        <TextView
+                            android:id="@+id/avif_cache_diagnostics"
+                            style="@style/M3SetDesc"
+                            android:text="@string/setting_avif_cache_diagnostics_empty" />
+                    </LinearLayout>
+                </RelativeLayout>
+
+                <RelativeLayout
                     android:id="@+id/jxl_archive_bookmark_rela"
                     style="@style/M3SetRow"
                     android:layout_marginTop="14dp"

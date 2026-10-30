@@ -92,6 +92,13 @@ public class FragmentSettingsExperimental extends SettingsPageFragment<FragmentS
                     }).show();
         });
 
+        baseBind.avifCacheDiagnostics.setText(ceui.pixiv.imagecodec.AvifCacheDiagnostics.INSTANCE.summary());
+        baseBind.avifCacheDiagnosticsRela.setOnClickListener(v ->
+                new WitDialog.MessageDialogBuilder(mActivity)
+                        .setTitle(R.string.setting_avif_cache_diagnostics)
+                        .setMessage(ceui.pixiv.imagecodec.AvifCacheDiagnostics.INSTANCE.summary())
+                        .show());
+
         baseBind.jxlArchiveBookmark.setChecked(Shaft.sSettings.isJxlArchiveOnBookmark());
         baseBind.jxlArchiveBookmark.setOnCheckedChangeListener((buttonView, isChecked) -> {
             Shaft.sSettings.setJxlArchiveOnBookmark(isChecked);

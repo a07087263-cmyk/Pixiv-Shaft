@@ -260,6 +260,8 @@ object AutoSnapshotEngine {
                     val appContext = Shaft.getContext()
                     // 无网/弱网不硬拉，静默跳过。
                     if (appContext.appServices().networkStateManager.networkState.value?.isOnline != true) return@withPermit
+                    // JXL 与普通快照共用收藏存档，不能为同一作品再复制一份。
+                    if (ceui.pixiv.jxlarchive.JxlArchiveRepository.read(appContext, id) != null) return@withPermit
                     // 已有正式快照时不生成；已有同作品自动快照时不重复生成。
                     val formalExists = SnapshotRepository.list(appContext).any { it.manifest.illustId == id }
                     if (formalExists) return@withPermit

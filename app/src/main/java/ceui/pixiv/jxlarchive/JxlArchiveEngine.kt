@@ -8,7 +8,19 @@ import ceui.lisa.utils.GlideUrlChild
 import ceui.pixiv.api.model.Illust
 import ceui.pixiv.imagecodec.NativeImageCodec
 import ceui.pixiv.services.appServices
+import ceui.pixiv.snapshot.AUTO_SNAPSHOT_MANIFEST
+import ceui.pixiv.snapshot.AutoSnapshotManifest
+import ceui.pixiv.snapshot.AutoSnapshotRepository
+import ceui.pixiv.snapshot.SNAPSHOT_ASSETS_JSON
+import ceui.pixiv.snapshot.SNAPSHOT_ILLUST_JSON
+import ceui.pixiv.snapshot.SNAPSHOT_MANIFEST
+import ceui.pixiv.snapshot.SNAPSHOT_STORAGE_JXL
+import ceui.pixiv.snapshot.SnapshotAssets
+import ceui.pixiv.snapshot.SnapshotManifest
+import ceui.pixiv.snapshot.SnapshotRepository
+import ceui.pixiv.snapshot.snapshotCoverVariantUrls
 import ceui.pixiv.snapshot.snapshotPageUrl
+import ceui.pixiv.snapshot.snapshotPageVariantUrls
 import ceui.pixiv.utils.fetchFullIllustDetail
 import ceui.pixiv.utils.hasTrustedCaption
 import ceui.pixiv.utils.isFullDetail
@@ -30,7 +42,7 @@ import java.util.concurrent.ConcurrentHashMap
 
 class JxlArchiveException(message: String) : IOException(message)
 
-/** Independent original-image archive path. No LRU and no unbookmark deletion. */
+/** JXL codec inside the unified snapshot library. No second artwork directory and no LRU. */
 object JxlArchiveEngine {
     private const val TAG = "JxlArchive"
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO +
@@ -44,7 +56,8 @@ object JxlArchiveEngine {
             try {
                 val app = Shaft.getContext()
                 if (app.appServices().networkStateManager.networkState.value?.isOnline != true) return@launch
-                archive(app, illust)
+                if (hasRegularSnapshot(app, illust.id)) return@launch
+                archive(app, illust, automatic = true)
                 Timber.tag(TAG).i("archive generated, illustId=%d", illust.id)
             } catch (ce: CancellationException) {
                 throw ce
@@ -57,14 +70,22 @@ object JxlArchiveEngine {
     suspend fun archive(
         context: Context,
         illust: Illust,
+        automatic: Boolean = false,
         onProgress: suspend (done: Int, total: Int) -> Unit = { _, _ -> },
     ): JxlArchiveManifest = withContext(Dispatchers.IO) {
         if (illust.isGif()) throw JxlArchiveException("JXL 存档暂不支持动图")
         if (!running.add(illust.id)) throw JxlArchiveException("该作品正在生成 JXL 存档")
         try {
             permit.withPermit {
-                JxlArchiveRepository.read(context, illust.id)?.let { return@withPermit it }
                 val app = context.applicationContext
+                JxlArchiveRepository.read(app, illust.id)?.let { return@withPermit it }
+                if (hasRegularSnapshot(app, illust.id)) {
+                    throw JxlArchiveException("该作品已有离线快照，未重复创建 JXL 存档")
+                }
+                if (!ceui.pixiv.snapshot.ArchiveReservation.tryReserve(illust.id)) {
+                    throw JxlArchiveException("该作品正在创建其他存档")
+                }
+                try {
                 val bean = if (illust.isFullDetail() && illust.hasTrustedCaption()) {
                     illust
                 } else {
@@ -75,22 +96,34 @@ object JxlArchiveEngine {
                     bean.snapshotPageUrl(index, original = true)
                         ?: throw JxlArchiveException("第 ${index + 1} 页缺少原图地址")
                 }
-                val root = JxlArchiveRepository.root(app).apply { mkdirs() }
-                val temp = File(root, ".tmp-${bean.id}-${UUID.randomUUID()}")
+                val root = SnapshotRepository.root(app).apply { mkdirs() }
+                val temp = File(root, ".tmp-jxl-${bean.id}-${UUID.randomUUID()}")
                 val pagesDir = File(temp, "pages")
                 check(pagesDir.mkdirs()) { "could not create JXL staging directory" }
                 try {
                     val pages = mutableListOf<String>()
+                    val assets = linkedMapOf<String, String>()
                     val effort = Shaft.sSettings.jxlArchiveEffort.coerceIn(1, 9)
                     urls.forEachIndexed { index, url ->
                         val relative = "pages/p$index.jxl"
                         convertOriginal(app, url, File(temp, relative), effort)
                         pages += relative
+                        bean.snapshotPageVariantUrls(index).forEach { variant -> assets[variant] = relative }
+                        assets[url] = relative
                         onProgress(index + 1, pageCount)
                     }
+                    if (pageCount > 1) {
+                        bean.snapshotCoverVariantUrls().forEach { variant -> assets[variant] = pages.first() }
+                    }
+                    File(temp, SNAPSHOT_ILLUST_JSON).writeText(Shaft.sGson.toJson(bean))
+                    File(temp, SNAPSHOT_ASSETS_JSON).writeText(Shaft.sGson.toJson(SnapshotAssets(assets)))
+
                     val totalSize = temp.walkTopDown().filter { it.isFile }.sumOf { it.length() }
+                    val fileCount = temp.walkTopDown().count { it.isFile }
+                    val createdAt = System.currentTimeMillis()
                     val manifest = JxlArchiveManifest(
                         illustId = bean.id,
+                        createdAt = createdAt,
                         title = bean.title,
                         authorName = bean.user?.name,
                         authorId = bean.user?.id,
@@ -101,23 +134,74 @@ object JxlArchiveEngine {
                         totalSize = totalSize,
                     )
                     JxlArchiveRepository.writeManifest(temp, manifest)
+                    val snapshotId = JxlArchiveRepository.snapshotId(bean.id)
+                    if (automatic) {
+                        File(temp, AUTO_SNAPSHOT_MANIFEST).writeText(Shaft.sGson.toJson(
+                            AutoSnapshotManifest(
+                                snapshotId = snapshotId,
+                                createdAt = createdAt,
+                                illustId = bean.id,
+                                type = bean.type ?: "illust",
+                                includeOriginal = true,
+                                isBookmarked = bean.isBookmarked,
+                                isFollowed = bean.user?.is_followed ?: false,
+                                xRestrict = bean.x_restrict,
+                                pageCount = pageCount,
+                                title = bean.title,
+                                authorName = bean.user?.name,
+                                authorId = bean.user?.id,
+                                coverPath = pages.first(),
+                                fileCount = fileCount,
+                                totalSize = totalSize,
+                                storageFormat = SNAPSHOT_STORAGE_JXL,
+                            )
+                        ))
+                    } else {
+                        File(temp, SNAPSHOT_MANIFEST).writeText(Shaft.sGson.toJson(
+                            SnapshotManifest(
+                                snapshotId = snapshotId,
+                                createdAt = createdAt,
+                                illustId = bean.id,
+                                type = bean.type ?: "illust",
+                                includeOriginal = true,
+                                isBookmarked = bean.isBookmarked,
+                                isFollowed = bean.user?.is_followed ?: false,
+                                xRestrict = bean.x_restrict,
+                                pageCount = pageCount,
+                                title = bean.title,
+                                authorName = bean.user?.name,
+                                authorId = bean.user?.id,
+                                coverPath = pages.first(),
+                                fileCount = fileCount,
+                                totalSize = totalSize,
+                                storageFormat = SNAPSHOT_STORAGE_JXL,
+                            )
+                        ))
+                    }
                     val target = JxlArchiveRepository.directory(app, bean.id)
                     JxlArchiveRepository.read(app, bean.id)?.let {
                         temp.deleteRecursively()
                         return@withPermit it
                     }
-                    if (target.exists()) target.deleteRecursively() // Replace an incomplete/corrupt older archive.
+                    if (target.exists()) target.deleteRecursively()
                     if (!temp.renameTo(target)) throw JxlArchiveException("无法发布 JXL 存档")
                     manifest
                 } catch (error: Throwable) {
                     temp.deleteRecursively()
                     throw error
                 }
+                } finally {
+                    ceui.pixiv.snapshot.ArchiveReservation.release(illust.id)
+                }
             }
         } finally {
             running.remove(illust.id)
         }
     }
+
+    private fun hasRegularSnapshot(context: Context, illustId: Long): Boolean =
+        SnapshotRepository.list(context).any { it.manifest.illustId == illustId } ||
+            AutoSnapshotRepository.listAuto(context).any { it.manifest.illustId == illustId }
 
     private fun convertOriginal(context: Context, url: String, output: File, effort: Int) {
         val source = File.createTempFile("shaft-jxl-original-", ".img", context.cacheDir)
