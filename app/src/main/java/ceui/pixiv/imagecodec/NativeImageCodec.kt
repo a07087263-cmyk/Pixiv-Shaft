@@ -30,6 +30,9 @@ object NativeImageCodec {
     @JvmStatic
     private external fun nativeCanDecodeFile(path: String): Boolean
 
+    @JvmStatic
+    private external fun nativeReconstructJpeg(path: String): ByteArray
+
     fun encodeAvif(bitmap: Bitmap, output: File, crf: Int, preset: Int) {
         check(nativeEncodeAvif(bitmap, output.absolutePath, crf, preset)) { "AVIF encoder returned false" }
     }
@@ -50,6 +53,8 @@ object NativeImageCodec {
     fun decode(input: ByteArray, sampleSize: Int = 1): Bitmap = nativeDecode(input, sampleSize)
 
     fun canDecode(file: File): Boolean = file.isFile && file.length() > 0 && nativeCanDecodeFile(file.absolutePath)
+
+    fun reconstructJpeg(file: File): ByteArray = nativeReconstructJpeg(file.absolutePath)
 
     fun formatOf(input: ByteArray, size: Int = input.size): Int = ImageFormatSniffer.formatOf(input, size)
 

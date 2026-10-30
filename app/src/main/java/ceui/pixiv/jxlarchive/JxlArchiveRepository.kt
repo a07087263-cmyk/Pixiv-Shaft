@@ -20,6 +20,8 @@ data class JxlArchiveManifest(
     val effort: Int,
     val pages: List<String>,
     val totalSize: Long,
+    val originalTotalSize: Long = 0L,
+    val sourceFormats: List<String> = emptyList(),
 )
 
 data class JxlArchiveSummary(

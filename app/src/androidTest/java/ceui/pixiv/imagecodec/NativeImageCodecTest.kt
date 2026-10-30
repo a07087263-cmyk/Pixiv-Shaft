@@ -5,6 +5,7 @@ import android.graphics.Color
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertArrayEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -36,6 +37,7 @@ class NativeImageCodecTest {
         val jxl = File(context.cacheDir, "codec-test-jpeg.jxl")
         NativeImageCodec.encodeJpegAsJxl(jpeg, jxl, 3)
         assertTrue(NativeImageCodec.canDecode(jxl))
+        assertArrayEquals(jpeg, NativeImageCodec.reconstructJpeg(jxl))
         val avif = File(context.cacheDir, "codec-test.avif")
         NativeImageCodec.encodeAvif(source, avif, 18, 8)
         assertTrue(NativeImageCodec.canDecode(avif))

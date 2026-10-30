@@ -7,22 +7,37 @@ import android.view.View
 import android.view.ViewGroup
 import android.widget.ImageView
 import android.widget.TextView
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
 import androidx.lifecycle.lifecycleScope
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
 import ceui.lisa.R
+import ceui.lisa.utils.Common
 import com.bumptech.glide.Glide
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
-import java.io.File
 import java.util.Locale
 
 class JxlArchiveActivity : AppCompatActivity() {
     private val adapter = ArchiveAdapter()
     private var items: List<JxlArchiveSummary> = emptyList()
+    private var pendingSummary: JxlArchiveSummary? = null
+    private var pendingMode = JxlExportMode.ORIGINAL
+    private val exportLauncher = registerForActivityResult(ActivityResultContracts.CreateDocument("*/*")) { uri ->
+        val summary = pendingSummary
+        if (uri == null || summary == null) return@registerForActivityResult
+        lifecycleScope.launch {
+            try {
+                withContext(Dispatchers.IO) { JxlArchiveExporter.export(applicationContext, summary, uri, pendingMode) }
+                Common.showToast(getString(R.string.jxl_archive_export_success))
+            } catch (error: Exception) {
+                Common.showToast(getString(R.string.jxl_archive_export_failed, error.message ?: ""))
+            }
+        }
+    }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -38,6 +53,7 @@ class JxlArchiveActivity : AppCompatActivity() {
             })
         }
         adapter.onDelete = { summary -> confirmDelete(summary) }
+        adapter.onExport = { summary -> showExportDialog(summary) }
     }
 
     override fun onResume() {
@@ -52,6 +68,17 @@ class JxlArchiveActivity : AppCompatActivity() {
             adapter.submit(items)
             findViewById<TextView>(R.id.empty_hint).visibility = if (items.isEmpty()) View.VISIBLE else View.GONE
         }
+    }
+
+    private fun showExportDialog(summary: JxlArchiveSummary) {
+        AlertDialog.Builder(this)
+            .setTitle(R.string.jxl_archive_export)
+            .setItems(arrayOf(getString(R.string.jxl_archive_export_original), getString(R.string.jxl_archive_export_png))) { _, which ->
+                pendingSummary = summary
+                pendingMode = if (which == 0) JxlExportMode.ORIGINAL else JxlExportMode.PNG
+                exportLauncher.launch(JxlArchiveExporter.suggestedName(summary, pendingMode))
+            }
+            .show()
     }
 
     private fun confirmDelete(summary: JxlArchiveSummary) {
@@ -71,6 +98,7 @@ class JxlArchiveActivity : AppCompatActivity() {
         private val values = mutableListOf<JxlArchiveSummary>()
         var onOpen: (JxlArchiveSummary) -> Unit = {}
         var onDelete: (JxlArchiveSummary) -> Unit = {}
+        var onExport: (JxlArchiveSummary) -> Unit = {}
 
         fun submit(items: List<JxlArchiveSummary>) {
             values.clear(); values.addAll(items); notifyDataSetChanged()
@@ -86,11 +114,18 @@ class JxlArchiveActivity : AppCompatActivity() {
             val item = values[position]
             Glide.with(holder.cover).load(item.cover).into(holder.cover)
             holder.title.text = item.manifest.title ?: item.manifest.illustId.toString()
-            holder.subtitle.text = holder.itemView.context.getString(
-                R.string.jxl_archive_list_subtitle,
-                item.manifest.pageCount,
-                formatSize(item.totalSize),
-            )
+            holder.subtitle.text = if (item.manifest.originalTotalSize > 0) {
+                holder.itemView.context.getString(
+                    R.string.jxl_archive_list_sizes,
+                    item.manifest.pageCount,
+                    formatSize(item.manifest.originalTotalSize),
+                    formatSize(item.totalSize),
+                    formatSaving(item.manifest.originalTotalSize, item.totalSize),
+                )
+            } else {
+                holder.itemView.context.getString(R.string.jxl_archive_list_subtitle, item.manifest.pageCount, formatSize(item.totalSize))
+            }
+            holder.export.setOnClickListener { onExport(item) }
             holder.itemView.setOnClickListener { onOpen(item) }
             holder.itemView.setOnLongClickListener { onDelete(item); true }
         }
@@ -99,6 +134,7 @@ class JxlArchiveActivity : AppCompatActivity() {
             val cover: ImageView = view.findViewById(R.id.cover)
             val title: TextView = view.findViewById(R.id.title)
             val subtitle: TextView = view.findViewById(R.id.subtitle)
+            val export: View = view.findViewById(R.id.export)
         }
     }
 }
@@ -107,4 +143,10 @@ internal fun formatSize(bytes: Long): String = when {
     bytes >= 1024 * 1024 -> String.format(Locale.US, "%.1f MB", bytes / 1024.0 / 1024.0)
     bytes >= 1024 -> String.format(Locale.US, "%.1f KB", bytes / 1024.0)
     else -> "$bytes B"
+}
+
+private fun formatSaving(original: Long, compressed: Long): String = when {
+    compressed < original -> String.format(Locale.US, "节约 %.1f%%", (1.0 - compressed.toDouble() / original) * 100)
+    compressed > original -> String.format(Locale.US, "增加 %.1f%%", (compressed.toDouble() / original - 1.0) * 100)
+    else -> "大小不变"
 }

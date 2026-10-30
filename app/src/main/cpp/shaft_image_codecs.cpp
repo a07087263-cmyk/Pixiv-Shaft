@@ -422,6 +422,52 @@ bool encodeJxlJpeg(const uint8_t* data, size_t size, const std::string& path, in
     return processJxl(encoder.value, path, error);
 }
 
+bool reconstructJpeg(const uint8_t* data, size_t size, std::vector<uint8_t>& output, std::string& error) {
+    JxlDecoder* decoder = JxlDecoderCreate(nullptr);
+    if (decoder == nullptr) {
+        error = "JxlDecoderCreate failed";
+        return false;
+    }
+    struct Guard { JxlDecoder* value; ~Guard() { JxlDecoderDestroy(value); } } guard{decoder};
+    if (JxlDecoderSubscribeEvents(decoder, JXL_DEC_JPEG_RECONSTRUCTION) != JXL_DEC_SUCCESS ||
+        JxlDecoderSetInput(decoder, data, size) != JXL_DEC_SUCCESS) {
+        error = "could not initialize JPEG reconstruction";
+        return false;
+    }
+    JxlDecoderCloseInput(decoder);
+    size_t buffered = 0;
+    while (true) {
+        const JxlDecoderStatus status = JxlDecoderProcessInput(decoder);
+        if (status == JXL_DEC_JPEG_RECONSTRUCTION) {
+            output.resize(std::max<size_t>(64 * 1024, size));
+            buffered = 0;
+            if (JxlDecoderSetJPEGBuffer(decoder, output.data(), output.size()) != JXL_DEC_SUCCESS) {
+                error = "could not set JPEG reconstruction buffer";
+                return false;
+            }
+        } else if (status == JXL_DEC_JPEG_NEED_MORE_OUTPUT) {
+            const size_t unused = JxlDecoderReleaseJPEGBuffer(decoder);
+            buffered = output.size() - unused;
+            output.resize(output.size() * 2);
+            if (JxlDecoderSetJPEGBuffer(decoder, output.data() + buffered, output.size() - buffered) != JXL_DEC_SUCCESS) {
+                error = "could not grow JPEG reconstruction buffer";
+                return false;
+            }
+        } else if (status == JXL_DEC_SUCCESS) {
+            const size_t unused = JxlDecoderReleaseJPEGBuffer(decoder);
+            if (!output.empty()) output.resize(output.size() - unused);
+            if (output.empty()) {
+                error = "this JXL has no JPEG reconstruction data";
+                return false;
+            }
+            return true;
+        } else if (status == JXL_DEC_ERROR || status == JXL_DEC_NEED_MORE_INPUT) {
+            error = "JPEG reconstruction failed with status " + std::to_string(status);
+            return false;
+        }
+    }
+}
+
 bool validParams(int value, int min, int max) { return value >= min && value <= max; }
 
 } // namespace
@@ -516,4 +562,22 @@ Java_ceui_pixiv_imagecodec_NativeImageCodec_nativeCanDecodeFile(JNIEnv* env, jcl
     RgbaImage image;
     std::string error;
     return decode(bytes.data(), bytes.size(), image, true, error) ? JNI_TRUE : JNI_FALSE;
+}
+
+extern "C" JNIEXPORT jbyteArray JNICALL
+Java_ceui_pixiv_imagecodec_NativeImageCodec_nativeReconstructJpeg(JNIEnv* env, jclass, jstring path) {
+    std::vector<uint8_t> input;
+    if (!readFile(jString(env, path), input)) {
+        throwJava(env, "could not read JXL input", "java/io/IOException");
+        return nullptr;
+    }
+    std::vector<uint8_t> output;
+    std::string error;
+    if (!reconstructJpeg(input.data(), input.size(), output, error)) {
+        throwJava(env, error.c_str(), "java/io/IOException");
+        return nullptr;
+    }
+    jbyteArray result = env->NewByteArray(static_cast<jsize>(output.size()));
+    env->SetByteArrayRegion(result, 0, static_cast<jsize>(output.size()), reinterpret_cast<const jbyte*>(output.data()));
+    return result;
 }

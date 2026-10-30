@@ -159,8 +159,10 @@ private class AvifCompressingFetcher(
     }
 
     private fun hasNormalExif(file: File): Boolean = runCatching {
-        ExifInterface(file).getAttributeInt(ExifInterface.TAG_ORIENTATION, ExifInterface.ORIENTATION_NORMAL) ==
-            ExifInterface.ORIENTATION_NORMAL
+        when (ExifInterface(file).getAttributeInt(ExifInterface.TAG_ORIENTATION, ExifInterface.ORIENTATION_UNDEFINED)) {
+            ExifInterface.ORIENTATION_NORMAL, ExifInterface.ORIENTATION_UNDEFINED -> true
+            else -> false
+        }
     }.getOrDefault(false)
 
     override fun cleanup() {

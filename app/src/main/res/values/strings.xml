@@ -3866,4 +3866,10 @@
     <string name="jxl_effort_fast">速度优先（effort 3）</string>
     <string name="jxl_effort_balanced">均衡（effort 5）</string>
     <string name="jxl_effort_small">压缩率优先（effort 7）</string>
+    <string name="jxl_archive_export">导出图片</string>
+    <string name="jxl_archive_export_original">原格式（JPEG 原文件，其他为 PNG）</string>
+    <string name="jxl_archive_export_png">PNG</string>
+    <string name="jxl_archive_export_success">图片导出完成</string>
+    <string name="jxl_archive_export_failed">图片导出失败：%1$s</string>
+    <string name="jxl_archive_list_sizes">%1$d 页 · 原图 %2$s → JXL %3$s（%4$s）</string>
 </resources>

@@ -3542,4 +3542,10 @@
     <string name="jxl_effort_fast">Speed first (effort 3)</string>
     <string name="jxl_effort_balanced">Balanced (effort 5)</string>
     <string name="jxl_effort_small">Compression first (effort 7)</string>
+    <string name="jxl_archive_export">Export images</string>
+    <string name="jxl_archive_export_original">Original format (JPEG file, PNG otherwise)</string>
+    <string name="jxl_archive_export_png">PNG</string>
+    <string name="jxl_archive_export_success">Images exported</string>
+    <string name="jxl_archive_export_failed">Export failed: %1$s</string>
+    <string name="jxl_archive_list_sizes">%1$d pages · Original %2$s → JXL %3$s (%4$s)</string>
 </resources>

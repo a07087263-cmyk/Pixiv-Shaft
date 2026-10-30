@@ -108,10 +108,14 @@ object JxlArchiveEngine {
                 try {
                     val pages = mutableListOf<String>()
                     val assets = linkedMapOf<String, String>()
+                    val sourceFormats = mutableListOf<String>()
+                    var originalTotalSize = 0L
                     val effort = Shaft.sSettings.jxlArchiveEffort.coerceIn(1, 9)
                     urls.forEachIndexed { index, url ->
                         val relative = "pages/p$index.jxl"
-                        convertOriginal(app, url, File(temp, relative), effort)
+                        val original = convertOriginal(app, url, File(temp, relative), effort)
+                        sourceFormats += original.format
+                        originalTotalSize += original.bytes
                         pages += relative
                         bean.snapshotPageVariantUrls(index).forEach { variant -> assets[variant] = relative }
                         assets[url] = relative
@@ -137,6 +141,8 @@ object JxlArchiveEngine {
                         effort = effort,
                         pages = pages,
                         totalSize = totalSize,
+                        originalTotalSize = originalTotalSize,
+                        sourceFormats = sourceFormats,
                     )
                     JxlArchiveRepository.writeManifest(temp, manifest)
                     val snapshotId = JxlArchiveRepository.snapshotId(bean.id)
@@ -208,7 +214,9 @@ object JxlArchiveEngine {
         SnapshotRepository.list(context).any { it.manifest.illustId == illustId } ||
             AutoSnapshotRepository.listAuto(context).any { it.manifest.illustId == illustId }
 
-    private fun convertOriginal(context: Context, url: String, output: File, effort: Int) {
+    private data class OriginalInfo(val format: String, val bytes: Long)
+
+    private fun convertOriginal(context: Context, url: String, output: File, effort: Int): OriginalInfo {
         val source = File.createTempFile("shaft-jxl-original-", ".img", context.cacheDir)
         var bitmap: Bitmap? = null
         try {
@@ -238,10 +246,19 @@ object JxlArchiveEngine {
             bitmap?.recycle()
             bitmap = null
             if (!NativeImageCodec.canDecode(output)) throw JxlArchiveException("JXL 完整解码校验失败")
+            return OriginalInfo(sourceFormat(bytes), bytes.size.toLong())
         } finally {
             bitmap?.recycle()
             source.delete()
         }
+    }
+
+    private fun sourceFormat(bytes: ByteArray): String = when {
+        bytes.size >= 2 && bytes[0] == 0xff.toByte() && bytes[1] == 0xd8.toByte() -> "JPEG"
+        bytes.size >= 8 && bytes[0] == 0x89.toByte() && bytes[1] == 0x50.toByte() -> "PNG"
+        bytes.size >= 12 && bytes.copyOfRange(0, 4).decodeToString() == "RIFF" &&
+            bytes.copyOfRange(8, 12).decodeToString() == "WEBP" -> "WEBP"
+        else -> "OTHER"
     }
 
     private const val MAX_ARCHIVE_PIXELS = 32_000_000L
