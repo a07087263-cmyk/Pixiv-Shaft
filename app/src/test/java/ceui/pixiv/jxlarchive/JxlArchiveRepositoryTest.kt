@@ -1,7 +1,7 @@
 package ceui.pixiv.jxlarchive
 
 import android.app.Application
-import androidx.test.core.app.ApplicationProvider
+import org.robolectric.RuntimeEnvironment
 import ceui.lisa.activities.Shaft
 import com.google.gson.Gson
 import org.junit.Assert.assertEquals
@@ -17,7 +17,7 @@ import java.io.File
 class JxlArchiveRepositoryTest {
     @Test
     fun unifiedSnapshotDirectoryIsReturnedByJxlListing() {
-        val context = ApplicationProvider.getApplicationContext<Application>()
+        val context = RuntimeEnvironment.getApplication()
         Shaft.sGson = Gson()
         val id = 112233L
         val directory = JxlArchiveRepository.directory(context, id)
