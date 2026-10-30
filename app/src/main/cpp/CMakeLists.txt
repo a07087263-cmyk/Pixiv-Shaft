@@ -85,6 +85,13 @@ FetchContent_Declare(svt_av1
                 -P "${CMAKE_CURRENT_LIST_DIR}/cmake/svt-av1-preserve-llvm-tools.cmake")
 FetchContent_MakeAvailable(svt_av1)
 
+# libavif includes <svt-av1/...>, while SVT's own target exposes Source/API
+# directly. Add a compatibility include root without patching upstream sources.
+set(SHAFT_SVT_INCLUDE_DIR "${CMAKE_CURRENT_BINARY_DIR}/shaft-svt-include")
+file(MAKE_DIRECTORY "${SHAFT_SVT_INCLUDE_DIR}")
+file(CREATE_LINK "${svt_av1_SOURCE_DIR}/Source/API" "${SHAFT_SVT_INCLUDE_DIR}/svt-av1" SYMBOLIC)
+target_include_directories(SvtAv1Enc INTERFACE "${SHAFT_SVT_INCLUDE_DIR}")
+
 # Still-image codecs. libavif reuses the exact SVT target above for encoding and
 # builds AOM only for decoding; libjxl supplies both sides of the archival path.
 set(AVIF_BUILD_APPS OFF CACHE BOOL "" FORCE)
