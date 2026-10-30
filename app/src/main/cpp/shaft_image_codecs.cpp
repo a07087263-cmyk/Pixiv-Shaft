@@ -441,7 +441,7 @@ bool reconstructJpeg(const uint8_t* data, size_t size, std::vector<uint8_t>& out
         return false;
     }
     struct Guard { JxlDecoder* value; ~Guard() { JxlDecoderDestroy(value); } } guard{decoder};
-    if (JxlDecoderSubscribeEvents(decoder, JXL_DEC_JPEG_RECONSTRUCTION) != JXL_DEC_SUCCESS ||
+    if (JxlDecoderSubscribeEvents(decoder, JXL_DEC_JPEG_RECONSTRUCTION | JXL_DEC_FULL_IMAGE) != JXL_DEC_SUCCESS ||
         JxlDecoderSetInput(decoder, data, size) != JXL_DEC_SUCCESS) {
         error = "could not initialize JPEG reconstruction";
         return false;
