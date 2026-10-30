@@ -90,6 +90,7 @@ import ceui.pixiv.snapshot.SnapshotRuntimeCache
 import ceui.pixiv.snapshot.SnapshotViewerData
 import ceui.pixiv.snapshot.localizeIllust
 import ceui.pixiv.snapshot.showSnapshotCreateDialog
+import ceui.pixiv.jxlarchive.showJxlArchiveDialog
 import ceui.pixiv.ui.share.shareFirstImage
 import ceui.pixiv.ui.share.saveArtworkPoster
 import ceui.pixiv.ui.upscale.IllustAiHelper
@@ -729,6 +730,7 @@ class FragmentIllust : BaseLazyFragment<FragmentIllustBinding>() {
             baseBind.toolbar.menu?.findItem(R.id.action_ai_upscale)?.isVisible = false
             baseBind.toolbar.menu?.findItem(R.id.action_ai_rembg)?.isVisible = false
             baseBind.toolbar.menu?.findItem(R.id.action_show_original)?.isVisible = false
+            baseBind.toolbar.menu?.findItem(R.id.action_jxl_archive)?.isVisible = false
         }
         baseBind.toolbar.setOnMenuItemClickListener { menuItem ->
             // 读字段而不是闭包捕获的 illust —— 菜单只按「形状」建一次，回调永远拿最新 bean。
@@ -761,6 +763,10 @@ class FragmentIllust : BaseLazyFragment<FragmentIllustBinding>() {
         }
         R.id.action_snapshot -> {
             showSnapshotCreateDialog(illust)
+            true
+        }
+        R.id.action_jxl_archive -> {
+            showJxlArchiveDialog(illust)
             true
         }
         R.id.action_dislike -> {
