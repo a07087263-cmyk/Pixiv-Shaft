@@ -94,6 +94,11 @@ bool decodeJxl(const uint8_t* data, size_t size, RgbaImage& output, bool pixels,
             output.height = info.ysize;
             haveInfo = true;
             if (!pixels) return true;
+        } else if (status == JXL_DEC_NEED_IMAGE_OUT_BUFFER) {
+            if (!haveInfo) {
+                error = "JXL output was requested before basic info";
+                return false;
+            }
             const size_t pixelCount = static_cast<size_t>(output.width) * output.height;
             if (pixelCount > SIZE_MAX / 4) {
                 error = "JXL dimensions overflow";
@@ -105,8 +110,8 @@ bool decodeJxl(const uint8_t* data, size_t size, RgbaImage& output, bool pixels,
                 return false;
             }
         } else if (status == JXL_DEC_FULL_IMAGE) {
-            if (!haveInfo) {
-                error = "JXL image arrived before basic info";
+            if (!haveInfo || output.pixels.empty()) {
+                error = "JXL image arrived before its output buffer";
                 return false;
             }
             return true;
@@ -114,10 +119,11 @@ bool decodeJxl(const uint8_t* data, size_t size, RgbaImage& output, bool pixels,
             if (!pixels) return haveInfo;
             error = "JXL ended without a full image";
             return false;
-        } else {
+        } else if (status == JXL_DEC_ERROR || status == JXL_DEC_NEED_MORE_INPUT) {
             error = "JXL decode failed with status " + std::to_string(status);
             return false;
         }
+        // COLOR_ENCODING, FRAME and other informational events need no action here.
     }
 }
 
@@ -359,7 +365,9 @@ bool encodeJxlBitmap(JNIEnv* env, jobject bitmap, const std::string& path, int e
     info.xsize = source.info.width;
     info.ysize = source.info.height;
     info.bits_per_sample = 8;
-    info.alpha_bits = hasTranslucentPixels(source) ? 8 : 0;
+    const bool alpha = hasTranslucentPixels(source);
+    info.alpha_bits = alpha ? 8 : 0;
+    info.num_extra_channels = alpha ? 1 : 0;
     info.uses_original_profile = JXL_TRUE;
     if (JxlEncoderSetBasicInfo(encoder.value, &info) != JXL_ENC_SUCCESS) {
         error = "could not set JXL basic info";
