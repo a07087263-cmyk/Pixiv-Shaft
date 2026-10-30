@@ -23,16 +23,32 @@ class JxlArchiveRepositoryTest {
         val directory = JxlArchiveRepository.directory(context, id)
         directory.deleteRecursively()
         File(directory, "pages").mkdirs()
-        File(directory, "pages/p0.jxl").writeBytes(byteArrayOf(0xff.toByte(), 0x0a))
+        File(directory, "pages/p0.png").writeBytes(byteArrayOf(0xff.toByte(), 0x0a))
         JxlArchiveRepository.writeManifest(directory, JxlArchiveManifest(
             illustId = id,
             pageCount = 1,
             effort = 5,
-            pages = listOf("pages/p0.jxl"),
+            pages = listOf("pages/p0.png"),
             totalSize = 2,
         ))
         assertNotNull(JxlArchiveRepository.read(context, id))
         assertEquals(id, JxlArchiveRepository.list(context).single().manifest.illustId)
         directory.deleteRecursively()
+    }
+
+    @Test
+    fun originalWebpFallbackKeepsItsExportExtension() {
+        val summary = JxlArchiveSummary(
+            JxlArchiveManifest(
+                illustId = 1,
+                pageCount = 1,
+                effort = 5,
+                pages = listOf("pages/p0.webp"),
+                totalSize = 10,
+                sourceFormats = listOf("WEBP"),
+            ),
+            java.io.File("/tmp/unused"),
+        )
+        assert(JxlArchiveExporter.suggestedName(summary, JxlExportMode.ORIGINAL).endsWith(".webp"))
     }
 }

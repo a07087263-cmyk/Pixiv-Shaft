@@ -3570,5 +3570,5 @@
     <string name="jxl_archive_export_png">PNG</string>
     <string name="jxl_archive_export_success">Images exported</string>
     <string name="jxl_archive_export_failed">Export failed: %1$s</string>
-    <string name="jxl_archive_list_sizes">%1$d pages · Original %2$s → JXL %3$s (%4$s)</string>
+    <string name="jxl_archive_list_sizes">%1$d pages · Original %2$s → Archive %3$s (%4$s)</string>
 </resources>

@@ -4,6 +4,7 @@ import android.content.Context
 import android.graphics.Bitmap
 import android.net.Uri
 import ceui.pixiv.imagecodec.NativeImageCodec
+import ceui.pixiv.imagecodec.ImageFormatSniffer
 import java.io.ByteArrayOutputStream
 import java.io.File
 import java.util.zip.ZipEntry
@@ -21,6 +22,7 @@ object JxlArchiveExporter {
             summary.manifest.pageCount > 1 -> "zip"
             mode == JxlExportMode.PNG -> "png"
             summary.manifest.sourceFormats.firstOrNull() == "JPEG" -> "jpg"
+            summary.manifest.sourceFormats.firstOrNull() == "WEBP" -> "webp"
             else -> "png"
         }
         return "${title}_${summary.manifest.illustId}.$extension"
@@ -49,10 +51,20 @@ object JxlArchiveExporter {
     private data class ExportedPage(val bytes: ByteArray, val extension: String)
 
     private fun exportPage(file: File, sourceFormat: String, mode: JxlExportMode): ExportedPage {
+        val bytes = file.readBytes()
+        if (mode == JxlExportMode.ORIGINAL && ImageFormatSniffer.formatOf(bytes) == 0) {
+            val extension = when (sourceFormat) {
+                "JPEG" -> "jpg"
+                "PNG" -> "png"
+                "WEBP" -> "webp"
+                else -> "img"
+            }
+            return ExportedPage(bytes, extension)
+        }
         if (mode == JxlExportMode.ORIGINAL && sourceFormat == "JPEG") {
             return ExportedPage(NativeImageCodec.reconstructJpeg(file), "jpg")
         }
-        val bitmap = NativeImageCodec.decode(file.readBytes())
+        val bitmap = NativeImageCodec.decode(bytes)
         return try {
             val output = ByteArrayOutputStream()
             if (!bitmap.compress(Bitmap.CompressFormat.PNG, 100, output)) {

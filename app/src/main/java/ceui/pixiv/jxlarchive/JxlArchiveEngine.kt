@@ -112,8 +112,8 @@ object JxlArchiveEngine {
                     var originalTotalSize = 0L
                     val effort = Shaft.sSettings.jxlArchiveEffort.coerceIn(1, 9)
                     urls.forEachIndexed { index, url ->
-                        val relative = "pages/p$index.jxl"
-                        val original = convertOriginal(app, url, File(temp, relative), effort)
+                        val original = archiveOriginal(app, url, temp, index, effort)
+                        val relative = original.relativePath
                         sourceFormats += original.format
                         originalTotalSize += original.bytes
                         pages += relative
@@ -214,39 +214,70 @@ object JxlArchiveEngine {
         SnapshotRepository.list(context).any { it.manifest.illustId == illustId } ||
             AutoSnapshotRepository.listAuto(context).any { it.manifest.illustId == illustId }
 
-    private data class OriginalInfo(val format: String, val bytes: Long)
+    private data class OriginalInfo(val format: String, val bytes: Long, val relativePath: String)
 
-    private fun convertOriginal(context: Context, url: String, output: File, effort: Int): OriginalInfo {
+    /**
+     * JXL is preferred, but archival never discards a downloaded original merely because the
+     * codec cannot represent it. Unsupported or failed pages are published in their source format.
+     */
+    private fun archiveOriginal(
+        context: Context,
+        url: String,
+        temp: File,
+        index: Int,
+        effort: Int,
+    ): OriginalInfo {
         val source = File.createTempFile("shaft-jxl-original-", ".img", context.cacheDir)
         var bitmap: Bitmap? = null
         try {
             download(context, url, source)
             val bytes = source.readBytes()
+            val format = sourceFormat(bytes)
+            if (format == "OTHER") throw JxlArchiveException("无法识别的原始图片格式")
             val bounds = BitmapFactory.Options().apply { inJustDecodeBounds = true }
             BitmapFactory.decodeByteArray(bytes, 0, bytes.size, bounds)
-            if (bounds.outWidth <= 0 || bounds.outHeight <= 0 ||
-                bounds.outWidth.toLong() * bounds.outHeight > MAX_ARCHIVE_PIXELS
-            ) {
-                throw JxlArchiveException("图片尺寸超过当前无损存档内存上限")
-            }
-            if (bytes.size >= 2 && bytes[0] == 0xff.toByte() && bytes[1] == 0xd8.toByte()) {
-                NativeImageCodec.encodeJpegAsJxl(bytes, output, effort)
-            } else {
-                if (isPngWithMoreThan8Bits(bytes)) {
-                    throw JxlArchiveException("暂不支持 16 位 PNG；未创建降精度存档")
+            val withinPixelLimit = bounds.outWidth > 0 && bounds.outHeight > 0 &&
+                bounds.outWidth.toLong() * bounds.outHeight <= MAX_ARCHIVE_PIXELS
+            val supportedPrecision = !isPngWithMoreThan8Bits(bytes)
+            val jxlRelative = "pages/p$index.jxl"
+            val jxlOutput = File(temp, jxlRelative)
+            if (withinPixelLimit && supportedPrecision) {
+                try {
+                    if (format == "JPEG") {
+                        NativeImageCodec.encodeJpegAsJxl(bytes, jxlOutput, effort)
+                    } else {
+                        val options = BitmapFactory.Options().apply {
+                            inPreferredConfig = Bitmap.Config.ARGB_8888
+                            inScaled = false
+                        }
+                        bitmap = BitmapFactory.decodeByteArray(bytes, 0, bytes.size, options)
+                            ?: throw JxlArchiveException("无法解码原始图片")
+                        NativeImageCodec.encodeJxl(bitmap, jxlOutput, effort)
+                    }
+                    bitmap?.recycle()
+                    bitmap = null
+                    if (NativeImageCodec.canDecode(jxlOutput)) {
+                        return OriginalInfo(format, bytes.size.toLong(), jxlRelative)
+                    }
+                } catch (error: Exception) {
+                    Timber.tag(TAG).w(error, "JXL page failed; keeping original, url=%s", url)
                 }
-                val options = BitmapFactory.Options().apply {
-                    inPreferredConfig = Bitmap.Config.ARGB_8888
-                    inScaled = false
-                }
-                bitmap = BitmapFactory.decodeByteArray(bytes, 0, bytes.size, options)
-                    ?: throw JxlArchiveException("无法解码原始图片")
-                NativeImageCodec.encodeJxl(bitmap, output, effort)
             }
             bitmap?.recycle()
             bitmap = null
-            if (!NativeImageCodec.canDecode(output)) throw JxlArchiveException("JXL 完整解码校验失败")
-            return OriginalInfo(sourceFormat(bytes), bytes.size.toLong())
+            jxlOutput.delete()
+            val extension = when (format) {
+                "JPEG" -> "jpg"
+                "PNG" -> "png"
+                "WEBP" -> "webp"
+                else -> "img"
+            }
+            val originalRelative = "pages/p$index.$extension"
+            val originalOutput = File(temp, originalRelative)
+            source.copyTo(originalOutput, overwrite = true)
+            if (originalOutput.length() != source.length()) throw JxlArchiveException("原文件回退保存失败")
+            Timber.tag(TAG).i("kept original page without transcoding, format=%s url=%s", format, url)
+            return OriginalInfo(format, bytes.size.toLong(), originalRelative)
         } finally {
             bitmap?.recycle()
             source.delete()

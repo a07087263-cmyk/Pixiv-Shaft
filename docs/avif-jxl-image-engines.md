@@ -28,8 +28,8 @@ cache. JPEG uses libjxl's lossless JPEG-frame transcoding. Other supported image
 straight-alpha RGBA and encoded as lossless JXL. Every page must pass a full native decode before
 its staging directory is atomically published inside the unified `ShaftSnapshots` library.
 Regular, automatic, and JXL archives check each other and use a cross-codec creation reservation,
-so one artwork cannot acquire three independent copies. Sixteen-bit PNG currently fails explicitly
-instead of being silently reduced to eight bits. ugoira is outside this engine.
+so one artwork cannot acquire three independent copies. Unsupported pages (including 16-bit PNG and oversized images) are kept byte-for-byte in their
+source format instead of aborting the whole archive. ugoira is outside this engine.
 
 The existing snapshot manager and `JxlArchiveActivity` read the same files. `JxlArchiveViewerActivity`
 displays all pages with the existing Sketch zoom viewer and the native JXL decoder.
