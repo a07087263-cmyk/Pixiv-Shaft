@@ -365,9 +365,11 @@ bool encodeJxlBitmap(JNIEnv* env, jobject bitmap, const std::string& path, int e
     info.xsize = source.info.width;
     info.ysize = source.info.height;
     info.bits_per_sample = 8;
-    const bool alpha = hasTranslucentPixels(source);
-    info.alpha_bits = alpha ? 8 : 0;
-    info.num_extra_channels = alpha ? 1 : 0;
+    // The input below is always RGBA. Four-channel input requires one declared
+    // alpha channel even when every pixel is opaque; zero extra channels is only
+    // valid for a packed RGB buffer.
+    info.alpha_bits = 8;
+    info.num_extra_channels = 1;
     info.uses_original_profile = JXL_TRUE;
     if (JxlEncoderSetBasicInfo(encoder.value, &info) != JXL_ENC_SUCCESS) {
         error = "could not set JXL basic info";
@@ -394,7 +396,7 @@ bool encodeJxlBitmap(JNIEnv* env, jobject bitmap, const std::string& path, int e
     }
     const JxlPixelFormat format{4, JXL_TYPE_UINT8, JXL_NATIVE_ENDIAN, 0};
     if (JxlEncoderAddImageFrame(frame, &format, packed.data(), packed.size()) != JXL_ENC_SUCCESS) {
-        error = "could not add JXL pixels";
+        error = "could not add JXL pixels (encoder error " + std::to_string(JxlEncoderGetError(encoder.value)) + ")";
         return false;
     }
     return processJxl(encoder.value, path, error);
