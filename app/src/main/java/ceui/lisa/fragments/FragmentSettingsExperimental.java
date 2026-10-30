@@ -1,6 +1,7 @@
 package ceui.lisa.fragments;
 
 import android.content.Context;
+import android.content.Intent;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
@@ -68,6 +69,52 @@ public class FragmentSettingsExperimental extends SettingsPageFragment<FragmentS
         });
         baseBind.autoSnapshotOnIllustMangaRela.setOnClickListener(v ->
                 baseBind.autoSnapshotOnIllustManga.performClick());
+
+        baseBind.avifCacheEnabled.setChecked(Shaft.sSettings.isAvifCacheEnabled());
+        baseBind.avifCacheEnabled.setOnCheckedChangeListener((buttonView, isChecked) -> {
+            Shaft.sSettings.setAvifCacheEnabled(isChecked);
+            Local.setSettings(Shaft.sSettings);
+            Common.showToast(getString(R.string.string_428));
+        });
+        baseBind.avifCacheRela.setOnClickListener(v -> baseBind.avifCacheEnabled.performClick());
+        updateAvifProfileLabel();
+        baseBind.avifCacheProfileRela.setOnClickListener(v -> {
+            String[] items = new String[]{
+                    getString(R.string.avif_profile_quality), getString(R.string.avif_profile_balanced),
+                    getString(R.string.avif_profile_small), getString(R.string.avif_profile_extreme)};
+            new WitDialog.CheckableDialogBuilder(mActivity)
+                    .setTitle(R.string.setting_avif_cache_profile)
+                    .addItems(items, (dialog, which) -> {
+                        Shaft.sSettings.setAvifCacheProfile(which);
+                        Local.setSettings(Shaft.sSettings);
+                        updateAvifProfileLabel();
+                        dialog.dismiss();
+                    }).show();
+        });
+
+        baseBind.jxlArchiveBookmark.setChecked(Shaft.sSettings.isJxlArchiveOnBookmark());
+        baseBind.jxlArchiveBookmark.setOnCheckedChangeListener((buttonView, isChecked) -> {
+            Shaft.sSettings.setJxlArchiveOnBookmark(isChecked);
+            Local.setSettings(Shaft.sSettings);
+            Common.showToast(getString(R.string.string_428));
+        });
+        baseBind.jxlArchiveBookmarkRela.setOnClickListener(v -> baseBind.jxlArchiveBookmark.performClick());
+        updateJxlEffortLabel();
+        baseBind.jxlArchiveEffortRela.setOnClickListener(v -> {
+            String[] items = new String[]{getString(R.string.jxl_effort_fast),
+                    getString(R.string.jxl_effort_balanced), getString(R.string.jxl_effort_small)};
+            int[] efforts = new int[]{3, 5, 7};
+            new WitDialog.CheckableDialogBuilder(mActivity)
+                    .setTitle(R.string.setting_jxl_archive_effort)
+                    .addItems(items, (dialog, which) -> {
+                        Shaft.sSettings.setJxlArchiveEffort(efforts[which]);
+                        Local.setSettings(Shaft.sSettings);
+                        updateJxlEffortLabel();
+                        dialog.dismiss();
+                    }).show();
+        });
+        baseBind.jxlArchiveManageRela.setOnClickListener(v ->
+                startActivity(new Intent(mContext, ceui.pixiv.jxlarchive.JxlArchiveActivity.class)));
 
         // google(Play)渠道不展示公开聊天室横幅开关，与 SettingsCatalog 索引一致。
         if (ceui.lisa.BuildConfig.IS_LITE) {
@@ -191,6 +238,19 @@ public class FragmentSettingsExperimental extends SettingsPageFragment<FragmentS
         });
         baseBind.isFirebaseEnableRela.setOnClickListener(v ->
                 baseBind.isFirebaseEnable.performClick());
+    }
+
+    private void updateAvifProfileLabel() {
+        int[] labels = new int[]{R.string.avif_profile_quality, R.string.avif_profile_balanced,
+                R.string.avif_profile_small, R.string.avif_profile_extreme};
+        int profile = Shaft.sSettings.getAvifCacheProfile();
+        baseBind.avifCacheProfile.setText(labels[profile >= 0 && profile < labels.length ? profile : 1]);
+    }
+
+    private void updateJxlEffortLabel() {
+        int effort = Shaft.sSettings.getJxlArchiveEffort();
+        baseBind.jxlArchiveEffort.setText(effort <= 3 ? R.string.jxl_effort_fast
+                : effort >= 7 ? R.string.jxl_effort_small : R.string.jxl_effort_balanced);
     }
 
     private void bindAutoSnapshotQuotaRow() {

@@ -60,7 +60,7 @@ import org.jetbrains.annotations.NotNull;
  * 经 {@link ceui.pixiv.services.ServicesModule} 桥接进图里。
  * */
 @HiltAndroidApp
-public class Shaft extends Application implements ServicesProvider {
+public class Shaft extends Application implements ServicesProvider, com.github.panpf.sketch.SingletonSketch.Factory {
 
     public static Settings sSettings;
     public static Gson sGson;
@@ -1078,5 +1078,15 @@ public class Shaft extends Application implements ServicesProvider {
     @Override
     public @NotNull ceui.lisa.update.ApkDownloadManager getApkDownloadManager() {
         return apkDownloadManager;
+    }
+
+    @Override
+    public @NotNull com.github.panpf.sketch.Sketch createSketch(@NotNull android.content.Context context) {
+        return new com.github.panpf.sketch.Sketch.Builder(context)
+                .components(builder -> {
+                    builder.addDecoder(ceui.pixiv.imagecodec.NativeSketchDecoderFactory.INSTANCE);
+                    return kotlin.Unit.INSTANCE;
+                })
+                .build();
     }
 }

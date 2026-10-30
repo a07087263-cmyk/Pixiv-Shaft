@@ -98,7 +98,7 @@ object PixivActions {
         bookmark: Boolean,
         restrict: String = defaultBookmarkRestrict(),
     ) {
-        setIllustBookmark(illust, bookmark, restrict, autoSnapshot = true)
+        setIllustBookmark(illust, bookmark, restrict, autoSnapshot = true, jxlArchive = true)
     }
 
     private fun setIllustBookmark(
@@ -106,6 +106,7 @@ object PixivActions {
         bookmark: Boolean,
         restrict: String,
         autoSnapshot: Boolean,
+        jxlArchive: Boolean,
     ) {
         if (illust.isBookmarked == bookmark) return
         applyIllustBookmark(
@@ -116,6 +117,7 @@ object PixivActions {
             authorId = illust.user?.id,
             authorFollowed = illust.user?.is_followed,
             autoSnapshot = autoSnapshot,
+            jxlArchive = jxlArchive,
         )
         // 自动快照不再在点击时触发，改为 ActionQueue Succeeded 事件后触发，
         // 避免与收藏/关注写操作“竞争”ObjectPool 数据。
@@ -181,7 +183,7 @@ object PixivActions {
             todo.chunked(BULK_CHUNK).forEach { chunk ->
                 chunk.forEach { illust ->
                     try {
-                        setIllustBookmark(illust, bookmark, restrict, autoSnapshot = false)
+                        setIllustBookmark(illust, bookmark, restrict, autoSnapshot = false, jxlArchive = false)
                     } catch (ce: CancellationException) {
                         throw ce
                     } catch (t: Throwable) {
@@ -250,6 +252,7 @@ object PixivActions {
         authorId: Long?,
         authorFollowed: Boolean?,
         autoSnapshot: Boolean,
+        jxlArchive: Boolean,
     ) {
         writeIllustBookmarkLocally(illustId, bookmark, illust)
         if (bookmark) RateAppManager.onUserEngaged()
@@ -259,7 +262,7 @@ object PixivActions {
                 type = PixivActionTypes.ILLUST_BOOKMARK,
                 dedupeKey = "${PixivActionTypes.ILLUST_BOOKMARK}:$illustId",
                 payload = Shaft.sGson.toJson(
-                    BookmarkPayload(illustId, bookmark, restrict, autoSnapshot = autoSnapshot)
+                    BookmarkPayload(illustId, bookmark, restrict, autoSnapshot = autoSnapshot, jxlArchive = jxlArchive)
                 ),
             )
         )
@@ -306,7 +309,7 @@ object PixivActions {
                 type = PixivActionTypes.ILLUST_BOOKMARK,
                 dedupeKey = "${PixivActionTypes.ILLUST_BOOKMARK}:$illustId",
                 payload = Shaft.sGson.toJson(
-                    BookmarkPayload(illustId, true, restrict, tags.ifEmpty { null }, autoSnapshot = true)
+                    BookmarkPayload(illustId, true, restrict, tags.ifEmpty { null }, autoSnapshot = true, jxlArchive = true)
                 ),
             )
         )

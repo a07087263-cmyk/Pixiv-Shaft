@@ -284,5 +284,7 @@
                 android:resource="@xml/v3_recommend_card_widget_info"/>
         </receiver>
         <receiver android:name="ceui.pixiv.widget.WidgetBookmarkReceiver" android:exported="false"/>
+            <activity android:name="ceui.pixiv.jxlarchive.JxlArchiveActivity" android:exported="false" />
+        <activity android:name="ceui.pixiv.jxlarchive.JxlArchiveViewerActivity" android:exported="false" />
     </application>
 </manifest>

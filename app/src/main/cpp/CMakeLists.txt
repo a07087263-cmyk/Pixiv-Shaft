@@ -85,6 +85,68 @@ FetchContent_Declare(svt_av1
                 -P "${CMAKE_CURRENT_LIST_DIR}/cmake/svt-av1-preserve-llvm-tools.cmake")
 FetchContent_MakeAvailable(svt_av1)
 
+# Still-image codecs. libavif reuses the exact SVT target above for encoding and
+# builds AOM only for decoding; libjxl supplies both sides of the archival path.
+set(AVIF_BUILD_APPS OFF CACHE BOOL "" FORCE)
+set(AVIF_BUILD_TESTS OFF CACHE BOOL "" FORCE)
+set(AVIF_ENABLE_WERROR OFF CACHE BOOL "" FORCE)
+set(AVIF_LIBYUV OFF CACHE BOOL "" FORCE)
+set(AVIF_CODEC_SVT ON CACHE BOOL "" FORCE)
+set(AVIF_CODEC_AOM LOCAL CACHE STRING "" FORCE)
+set(AVIF_CODEC_AOM_DECODE ON CACHE BOOL "" FORCE)
+set(AVIF_CODEC_AOM_ENCODE OFF CACHE BOOL "" FORCE)
+if(NOT ANDROID_ABI STREQUAL "arm64-v8a")
+    # Emulator CI must not gain a host NASM dependency merely to decode AVIF.
+    set(AOM_TARGET_CPU "generic" CACHE STRING "" FORCE)
+    set(ENABLE_NASM OFF CACHE BOOL "" FORCE)
+endif()
+FetchContent_Declare(libavif
+        URL "https://github.com/AOMediaCodec/libavif/archive/refs/tags/v1.4.2.tar.gz"
+        URL_HASH "SHA256=2b645287340ba5a631d268b551dc2d72bd73ac33335962dd36dcdb6d8366921d")
+FetchContent_MakeAvailable(libavif)
+
+set(JPEGXL_ENABLE_TOOLS OFF CACHE BOOL "" FORCE)
+set(JPEGXL_ENABLE_DEVTOOLS OFF CACHE BOOL "" FORCE)
+set(JPEGXL_ENABLE_BENCHMARK OFF CACHE BOOL "" FORCE)
+set(JPEGXL_ENABLE_EXAMPLES OFF CACHE BOOL "" FORCE)
+set(JPEGXL_ENABLE_JPEGLI OFF CACHE BOOL "" FORCE)
+set(JPEGXL_ENABLE_JPEGLI_LIBJPEG OFF CACHE BOOL "" FORCE)
+set(JPEGXL_ENABLE_OPENEXR OFF CACHE BOOL "" FORCE)
+set(JPEGXL_ENABLE_SJPEG OFF CACHE BOOL "" FORCE)
+set(JPEGXL_ENABLE_DOXYGEN OFF CACHE BOOL "" FORCE)
+set(JPEGXL_ENABLE_MANPAGES OFF CACHE BOOL "" FORCE)
+# v0.11.2, commit 332feb17d17311c748445f7ee75c4fb55cc38530.
+# Recursive submodules are recorded by that commit (Highway, Brotli, etc.).
+FetchContent_Declare(libjxl
+        GIT_REPOSITORY "https://github.com/libjxl/libjxl.git"
+        GIT_TAG "v0.11.2"
+        GIT_SHALLOW TRUE
+        GIT_SUBMODULES_RECURSE TRUE
+        GIT_PROGRESS TRUE)
+FetchContent_MakeAvailable(libjxl)
+
+add_library(shaft_image_codecs SHARED shaft_image_codecs.cpp)
+target_compile_features(shaft_image_codecs PRIVATE cxx_std_20)
+target_compile_options(shaft_image_codecs PRIVATE
+        -O3
+        -Wall
+        -Wextra
+        -ffunction-sections
+        -fdata-sections)
+target_include_directories(shaft_image_codecs PRIVATE
+        "${libavif_SOURCE_DIR}/include"
+        "${libjxl_SOURCE_DIR}/lib/include")
+target_link_libraries(shaft_image_codecs PRIVATE avif SvtAv1Enc jxl jnigraphics log)
+target_link_options(shaft_image_codecs PRIVATE
+        -Wl,--gc-sections
+        -Wl,-z,relro
+        -Wl,-z,now
+        -Wl,-z,max-page-size=16384
+        -Wl,-z,common-page-size=16384)
+set_target_properties(shaft_image_codecs PROPERTIES
+        CXX_VISIBILITY_PRESET hidden
+        VISIBILITY_INLINES_HIDDEN YES)
+
 add_library(shaft_ugoira_av1 SHARED shaft_ugoira_av1.cpp)
 target_compile_features(shaft_ugoira_av1 PRIVATE cxx_std_20)
 target_compile_options(shaft_ugoira_av1 PRIVATE

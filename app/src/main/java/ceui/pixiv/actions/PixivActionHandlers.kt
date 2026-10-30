@@ -39,6 +39,8 @@ internal data class BookmarkPayload(
     val tags: List<String>? = null,
     /** 是否在收藏成功确认后触发自动快照（单点收藏/按标签收藏为 true，批量收藏为 false）。 */
     val autoSnapshot: Boolean = false,
+    /** Independent JXL archive eligibility; actual generation still follows its own setting. */
+    val jxlArchive: Boolean = false,
 )
 
 /** @param follow true = 关注，false = 取关 */

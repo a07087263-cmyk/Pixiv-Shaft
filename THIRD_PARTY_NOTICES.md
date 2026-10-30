@@ -25,3 +25,26 @@ The ugoira MP4 exporter includes the SVT-AV1 software encoder.
 - License: BSD 3-Clause Clear License and Alliance for Open Media Patent License 1.0
 
 The accompanying license and patent texts are packaged under `assets/licenses/svt-av1/`.
+
+## libavif and libaom
+
+The optional AVIF cache uses libavif for the AVIF container and libaom for decoding. Encoding
+continues to use the SVT-AV1 target described above.
+
+- libavif: https://github.com/AOMediaCodec/libavif , version `1.4.2`, BSD 2-Clause License
+- libaom: https://aomedia.googlesource.com/aom , version `3.14.1`, Alliance for Open Media Patent License 1.0 and BSD-style license
+- Integration: pinned sources built by `app/src/main/cpp/CMakeLists.txt`
+
+Their license texts are packaged under `assets/licenses/libavif/` and `assets/licenses/aom/`.
+
+## JPEG XL reference implementation
+
+The independent JXL collection archive uses libjxl for lossless encoding and in-app decoding.
+
+- Upstream project: https://github.com/libjxl/libjxl
+- Version: `0.11.2` (commit `332feb17d17311c748445f7ee75c4fb55cc38530`)
+- Integration: pinned source revision and its recorded submodules, built by `app/src/main/cpp/CMakeLists.txt`
+- License: BSD 3-Clause License
+
+The license text is packaged under `assets/licenses/libjxl/`. Licenses of its build-time-recorded
+dependencies remain with their respective upstream projects.

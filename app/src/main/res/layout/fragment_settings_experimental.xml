@@ -143,6 +143,66 @@
                 </RelativeLayout>
 
                 <RelativeLayout
+                    android:id="@+id/avif_cache_rela"
+                    style="@style/M3SetRow"
+                    android:layout_marginTop="14dp"
+                    android:background="@drawable/wit_row_single">
+                    <LinearLayout style="@style/M3SetTexts">
+                        <TextView style="@style/M3SetTitle" android:text="@string/setting_avif_cache" />
+                        <TextView style="@style/M3SetDesc" android:text="@string/setting_avif_cache_desc" />
+                    </LinearLayout>
+                    <androidx.appcompat.widget.SwitchCompat
+                        android:id="@+id/avif_cache_enabled"
+                        style="@style/M3SetSwitch" />
+                </RelativeLayout>
+
+                <RelativeLayout
+                    android:id="@+id/avif_cache_profile_rela"
+                    style="@style/M3SetRow"
+                    android:layout_marginTop="14dp"
+                    android:background="@drawable/wit_row_single">
+                    <LinearLayout style="@style/M3SetTexts" android:layout_marginEnd="130dp">
+                        <TextView style="@style/M3SetTitle" android:text="@string/setting_avif_cache_profile" />
+                    </LinearLayout>
+                    <TextView android:id="@+id/avif_cache_profile" style="@style/M3SetValue" />
+                </RelativeLayout>
+
+                <RelativeLayout
+                    android:id="@+id/jxl_archive_bookmark_rela"
+                    style="@style/M3SetRow"
+                    android:layout_marginTop="14dp"
+                    android:background="@drawable/wit_row_single">
+                    <LinearLayout style="@style/M3SetTexts">
+                        <TextView style="@style/M3SetTitle" android:text="@string/setting_jxl_archive_bookmark" />
+                        <TextView style="@style/M3SetDesc" android:text="@string/setting_jxl_archive_bookmark_desc" />
+                    </LinearLayout>
+                    <androidx.appcompat.widget.SwitchCompat
+                        android:id="@+id/jxl_archive_bookmark"
+                        style="@style/M3SetSwitch" />
+                </RelativeLayout>
+
+                <RelativeLayout
+                    android:id="@+id/jxl_archive_effort_rela"
+                    style="@style/M3SetRow"
+                    android:layout_marginTop="14dp"
+                    android:background="@drawable/wit_row_single">
+                    <LinearLayout style="@style/M3SetTexts" android:layout_marginEnd="130dp">
+                        <TextView style="@style/M3SetTitle" android:text="@string/setting_jxl_archive_effort" />
+                    </LinearLayout>
+                    <TextView android:id="@+id/jxl_archive_effort" style="@style/M3SetValue" />
+                </RelativeLayout>
+
+                <RelativeLayout
+                    android:id="@+id/jxl_archive_manage_rela"
+                    style="@style/M3SetRow"
+                    android:layout_marginTop="14dp"
+                    android:background="@drawable/wit_row_single">
+                    <LinearLayout style="@style/M3SetTexts">
+                        <TextView style="@style/M3SetTitle" android:text="@string/setting_jxl_archive_manage" />
+                    </LinearLayout>
+                </RelativeLayout>
+
+                <RelativeLayout
                     android:id="@+id/log_file_enable_rela"
                     style="@style/M3SetRow"
                     android:layout_marginTop="14dp"

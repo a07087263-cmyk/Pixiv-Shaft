@@ -24,6 +24,7 @@ import ceui.pixiv.api.model.Illust
 import ceui.pixiv.cache.ObjectPool
 import ceui.pixiv.download.DownloadRecordStateSource
 import ceui.pixiv.snapshot.showSnapshotCreateDialog
+import ceui.pixiv.jxlarchive.showJxlArchiveDialog
 import ceui.pixiv.ui.bookmark.SelectTagBottomSheet
 import ceui.pixiv.ui.detail.frames.openUgoiraFrames
 import ceui.pixiv.ui.muted.MuteTagSheet
@@ -233,6 +234,11 @@ internal class ArtworkV3Actions(
             }
             item(context.getString(R.string.snapshot_create), R.drawable.ic_baseline_get_app_20) {
                 fragment.showSnapshotCreateDialog(illust)
+            }
+            if (!illust.isGif()) {
+                item(context.getString(R.string.jxl_archive_create), R.drawable.ic_baseline_get_app_20) {
+                    fragment.showJxlArchiveDialog(illust)
+                }
             }
             // issue #898 / #515:详情页直接设壁纸(首图),不必先进全屏看图页。动图 original 是 zip,跳过。
             if (!illust.isGif()) {

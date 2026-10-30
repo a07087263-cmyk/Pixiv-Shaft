@@ -3839,4 +3839,28 @@
     <string name="open_with_chrome">使用Chrome打开</string>
     <string name="debug_update_sheet_title" translatable="false">调试更新弹窗</string>
     <string name="debug_update_sheet_desc" translatable="false">调试用：弹出更新弹窗（支持测试无安装包时的外部打开）</string>
+    <string name="jxl_archive_title">JXL 无损存档</string>
+    <string name="jxl_archive_create">创建 JXL 无损存档</string>
+    <string name="jxl_archive_preparing">准备原始图片…</string>
+    <string name="jxl_archive_progress">正在无损存档 %1$d / %2$d</string>
+    <string name="jxl_archive_success">JXL 无损存档已创建</string>
+    <string name="jxl_archive_failed">JXL 存档失败：%1$s</string>
+    <string name="jxl_archive_empty">还没有 JXL 存档。可在作品菜单中手动创建。</string>
+    <string name="jxl_archive_list_subtitle">%1$d 页 · %2$s</string>
+    <string name="jxl_archive_delete_confirm">删除这份本地 JXL 存档？此操作不会影响收藏状态。</string>
+    <string name="jxl_archive_page_indicator">%1$d / %2$d</string>
+    <string name="setting_avif_cache">AVIF 缓存压缩</string>
+    <string name="setting_avif_cache_desc">新缓存图片优先转码为 AVIF；失败或更大时保留原图</string>
+    <string name="setting_avif_cache_profile">AVIF 压缩档位</string>
+    <string name="setting_jxl_archive_bookmark">收藏时创建 JXL 无损存档</string>
+    <string name="setting_jxl_archive_bookmark_desc">下载原始图片并无损保存，独立于此前的离线快照</string>
+    <string name="setting_jxl_archive_effort">JXL 编码档位</string>
+    <string name="setting_jxl_archive_manage">管理 JXL 无损存档</string>
+    <string name="avif_profile_quality">质量优先（CRF18 / preset 6）</string>
+    <string name="avif_profile_balanced">均衡（CRF18 / preset 8）</string>
+    <string name="avif_profile_small">更小体积（CRF24 / preset 10）</string>
+    <string name="avif_profile_extreme">极限压缩（CRF30 / preset 10）</string>
+    <string name="jxl_effort_fast">速度优先（effort 3）</string>
+    <string name="jxl_effort_balanced">均衡（effort 5）</string>
+    <string name="jxl_effort_small">压缩率优先（effort 7）</string>
 </resources>

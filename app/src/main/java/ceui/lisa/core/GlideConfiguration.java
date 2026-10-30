@@ -1,6 +1,7 @@
 package ceui.lisa.core;
 
 import android.content.Context;
+import android.graphics.Bitmap;
 
 import com.bumptech.glide.Glide;
 import com.bumptech.glide.GlideBuilder;
@@ -13,6 +14,7 @@ import com.bumptech.glide.module.AppGlideModule;
 
 import java.io.File;
 import java.io.InputStream;
+import java.nio.ByteBuffer;
 
 import ceui.lisa.activities.Shaft;
 import ceui.pixiv.cache.ImageCacheQuota;
@@ -20,6 +22,8 @@ import ceui.pixiv.cache.ImageCacheQuotaState;
 import ceui.pixiv.snapshot.SnapshotLocalStreamLoader;
 import ceui.pixiv.snapshot.SnapshotLocalFileLoader;
 import ceui.pixiv.sticker.LocalSticker;
+import ceui.pixiv.imagecodec.NativeGlideByteBufferDecoder;
+import ceui.pixiv.imagecodec.NativeGlideInputStreamDecoder;
 import ceui.pixiv.sticker.StickerModelLoader;
 
 @GlideModule
@@ -53,7 +57,11 @@ public class GlideConfiguration extends AppGlideModule {
         //用 LeakSafeOkHttpUrlLoader 而不是官方 OkHttpUrlLoader:官方 fetcher 在
         //「响应已到达、请求随后被取消」(列表快速滑动)时会遗弃打开的 response body,
         //刷屏 "A connection to https://i.pximg.net/ was leaked",详见该类注释。
-        registry.replace(GlideUrl.class, InputStream.class, new LeakSafeOkHttpUrlLoader.Factory(application.getOkHttpClient()));
+        registry.replace(GlideUrl.class, InputStream.class, new ceui.pixiv.imagecodec.AvifCompressingUrlLoader.Factory(application, application.getOkHttpClient()));
+        // Decoders stay registered even when AVIF writing is disabled: switching the feature off
+        // must never make already-compressed cache entries unreadable.
+        registry.prepend(InputStream.class, Bitmap.class, new NativeGlideInputStreamDecoder(glide.getBitmapPool()));
+        registry.prepend(ByteBuffer.class, Bitmap.class, new NativeGlideByteBufferDecoder(glide.getBitmapPool()));
         //「离线快照」的 shaftsnap:// 走本地文件。必须 prepend 到网络 loader 之前:
         //Glide 按注册顺序问 handles(),而 LeakSafeOkHttpUrlLoader.handles() 恒为 true,谁在前谁接管。
         //也必须放在上面那行 replace 之后 —— replace 会先清掉该 (GlideUrl, InputStream) 下已注册的全部条目。

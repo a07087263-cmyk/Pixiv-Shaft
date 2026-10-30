@@ -414,6 +414,12 @@ public class Settings {
 
     private volatile boolean autoSnapshotOnIllustManga = false; // 试验性：插画/漫画自动生成快照
 
+    /** 新引擎：AVIF 缓存写入与 JXL 收藏存档，均独立于旧缓存/快照，默认关闭。 */
+    private volatile boolean avifCacheEnabled = false;
+    private volatile int avifCacheProfile = 1;
+    private volatile boolean jxlArchiveOnBookmark = false;
+    private volatile int jxlArchiveEffort = 5;
+
     /** 试验性：自动快照总大小上限（MB）；默认等于旧硬编码 200 MB。 */
     private volatile int autoSnapshotMaxMb = AutoSnapshotQuota.DEFAULT_LIMIT_MB;
 
@@ -1322,6 +1328,38 @@ public class Settings {
 
     public void setAutoDownloadAfterStar(boolean autoDownloadAfterStar) {
         this.autoDownloadAfterStar = autoDownloadAfterStar;
+    }
+
+    public boolean isAvifCacheEnabled() {
+        return avifCacheEnabled;
+    }
+
+    public void setAvifCacheEnabled(boolean enabled) {
+        this.avifCacheEnabled = enabled;
+    }
+
+    public int getAvifCacheProfile() {
+        return avifCacheProfile;
+    }
+
+    public void setAvifCacheProfile(int profile) {
+        this.avifCacheProfile = profile;
+    }
+
+    public boolean isJxlArchiveOnBookmark() {
+        return jxlArchiveOnBookmark;
+    }
+
+    public void setJxlArchiveOnBookmark(boolean enabled) {
+        this.jxlArchiveOnBookmark = enabled;
+    }
+
+    public int getJxlArchiveEffort() {
+        return jxlArchiveEffort;
+    }
+
+    public void setJxlArchiveEffort(int effort) {
+        this.jxlArchiveEffort = effort;
     }
 
     public boolean isAutoSnapshotOnBookmark() {

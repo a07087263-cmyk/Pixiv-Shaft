@@ -342,11 +342,14 @@ class PixivActionQueue @Inject constructor(
                 // 事件驱动：收藏被服务端确认成功后再触发自动快照。
                 // 此时读取 ObjectPool 里的值已经是“本地乐观态 == 服务端确认态”，
                 // 不再与队列竞争数据；只有单点收藏/按标签收藏的 payload 才带 autoSnapshot。
-                if (payload.bookmark && payload.autoSnapshot) {
+                if (payload.bookmark && (payload.autoSnapshot || payload.jxlArchive)) {
                     val confirmed = ObjectPool.get<Illust>(payload.id).value
                         ?.takeIf { it.is_bookmarked == true }
                         ?: (illust ?: fetched)?.takeIf { it.is_bookmarked == true }
-                    confirmed?.let(AutoSnapshotEngine::onBookmarkConfirmed)
+                    if (payload.autoSnapshot) confirmed?.let(AutoSnapshotEngine::onBookmarkConfirmed)
+                    if (payload.jxlArchive) {
+                        confirmed?.let(ceui.pixiv.jxlarchive.JxlArchiveEngine::onBookmarkConfirmed)
+                    }
                 }
 
                 // 收藏镜像的本地维护。**在这里而不是点击时**，理由和上面的埋点一样：
