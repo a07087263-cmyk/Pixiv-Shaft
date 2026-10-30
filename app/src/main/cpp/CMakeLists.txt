@@ -90,7 +90,6 @@ FetchContent_MakeAvailable(svt_av1)
 set(SHAFT_SVT_INCLUDE_DIR "${CMAKE_CURRENT_BINARY_DIR}/shaft-svt-include")
 file(MAKE_DIRECTORY "${SHAFT_SVT_INCLUDE_DIR}")
 file(CREATE_LINK "${svt_av1_SOURCE_DIR}/Source/API" "${SHAFT_SVT_INCLUDE_DIR}/svt-av1" SYMBOLIC)
-target_include_directories(SvtAv1Enc INTERFACE "${SHAFT_SVT_INCLUDE_DIR}")
 
 # Still-image codecs. libavif reuses the exact SVT target above for encoding and
 # builds AOM only for decoding; libjxl supplies both sides of the archival path.
@@ -111,6 +110,7 @@ FetchContent_Declare(libavif
         URL "https://github.com/AOMediaCodec/libavif/archive/refs/tags/v1.4.2.tar.gz"
         URL_HASH "SHA256=2b645287340ba5a631d268b551dc2d72bd73ac33335962dd36dcdb6d8366921d")
 FetchContent_MakeAvailable(libavif)
+target_include_directories(avif_obj PRIVATE "${SHAFT_SVT_INCLUDE_DIR}")
 
 set(JPEGXL_ENABLE_TOOLS OFF CACHE BOOL "" FORCE)
 set(JPEGXL_ENABLE_DEVTOOLS OFF CACHE BOOL "" FORCE)
