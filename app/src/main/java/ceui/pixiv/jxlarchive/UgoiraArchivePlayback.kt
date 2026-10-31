@@ -16,19 +16,7 @@ object UgoiraArchivePlayback {
         val animation = File(directory, manifest.pages.single())
         return when (animation.extension.lowercase()) {
             "mp4" -> UgoiraFrames(directory, emptyList(), delays, false, animation, archived = true)
-            "jxl" -> {
-                val playback = File(directory, "playback")
-                val marker = File(playback, "delays.txt")
-                val cached = delays.indices.map { File(playback, "frame-%08d.png".format(it)) }
-                val ready = marker.isFile && marker.readLines().mapNotNull { it.toIntOrNull() } == delays &&
-                    cached.all { it.isFile && it.length() > 0 }
-                if (!ready) {
-                    val decoded = NativeImageCodec.decodeJxlAnimation(animation, playback)
-                    if (decoded.delaysMs != delays || decoded.files.size != delays.size) return null
-                    marker.writeText(delays.joinToString("\n"))
-                }
-                UgoiraFrames(playback, cached, delays, false, archived = true)
-            }
+            "jxl" -> UgoiraFrames(directory, emptyList(), delays, false, archived = true, animationJxl = animation)
             else -> null
         }
     }

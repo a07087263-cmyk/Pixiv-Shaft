@@ -5,7 +5,6 @@ import android.graphics.Bitmap
 import android.net.Uri
 import ceui.pixiv.imagecodec.NativeImageCodec
 import ceui.pixiv.imagecodec.ImageFormatSniffer
-import ceui.pixiv.imagecodec.NativeImageCodec
 import ceui.pixiv.ui.bulk.UgoiraVideoEncoder
 import ceui.pixiv.ui.bulk.UgoiraFrames
 import ceui.pixiv.ui.bulk.encodeFramesToGif
