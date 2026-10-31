@@ -1,6 +1,7 @@
 package ceui.pixiv.imagecodec
 
 import android.graphics.Bitmap
+import android.graphics.BitmapFactory
 import android.graphics.Color
 import android.graphics.Canvas
 import androidx.test.ext.junit.runners.AndroidJUnit4
