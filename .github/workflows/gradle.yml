@@ -417,7 +417,7 @@ jobs:
           profile: pixel_7_pro
           script: >-
             ./gradlew :app:connectedGithubReleaseAndroidTest
-            -Pandroid.testInstrumentationRunnerArguments.class=ceui.lisa.ExampleInstrumentedTest,ceui.lisa.model.AppApiGsonR8InstrumentedTest,ceui.pixiv.imagecodec.NativeImageCodecTest,ceui.pixiv.shaftapi.ShaftHmacInstrumentedTest,ceui.pixiv.ui.search.SearchRiskPolicyInstrumentedTest
+            -Pandroid.testInstrumentationRunnerArguments.class=ceui.lisa.ExampleInstrumentedTest,ceui.lisa.model.AppApiGsonR8InstrumentedTest,ceui.pixiv.imagecodec.NativeJxlReleaseInstrumentedTest,ceui.pixiv.shaftapi.ShaftHmacInstrumentedTest,ceui.pixiv.ui.search.SearchRiskPolicyInstrumentedTest
             -PSHAFT_TEST_BUILD_TYPE=release -PSHAFT_TEST_ABI=x86_64 --stacktrace
       - name: Upload Release test reports
         if: failure()

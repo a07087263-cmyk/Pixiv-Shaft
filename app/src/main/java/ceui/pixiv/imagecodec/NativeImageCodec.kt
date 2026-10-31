@@ -9,6 +9,7 @@ import java.io.IOException
 import java.io.Closeable
 
 /** Native AVIF/JXL entry points. Files are always identified by their signature, never by suffix. */
+@Keep
 data class DecodedJxlAnimation(val files: List<File>, val delaysMs: List<Int>)
 
 @Keep
@@ -118,6 +119,10 @@ object NativeImageCodec {
 
     fun reconstructJpeg(file: File): ByteArray = nativeReconstructJpeg(file.absolutePath)
 
+    @JvmStatic
+    fun encodeJxlAnimation(files: List<File>, delaysMs: List<Int>, output: File, effort: Int) =
+        encodeJxlAnimation(files, delaysMs, output, effort) {}
+
     fun encodeJxlAnimation(
         files: List<File>,
         delaysMs: List<Int>,
@@ -161,6 +166,9 @@ object NativeImageCodec {
             if (!finished) nativeAbortJxlAnimation(handle)
         }
     }
+
+    @JvmStatic
+    fun decodeJxlAnimation(input: File, outputDir: File): DecodedJxlAnimation = decodeJxlAnimation(input, outputDir) {}
 
     fun decodeJxlAnimation(input: File, outputDir: File, onCheckpoint: (String) -> Unit = {}): DecodedJxlAnimation {
         onCheckpoint("decodeJxlAnimation enter inputBytes=${input.length()} outputDir=${outputDir.name}")
