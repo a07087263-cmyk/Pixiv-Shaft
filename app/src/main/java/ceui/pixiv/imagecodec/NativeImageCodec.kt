@@ -11,6 +11,7 @@ import java.io.Closeable
 /** Native AVIF/JXL entry points. Files are always identified by their signature, never by suffix. */
 data class DecodedJxlAnimation(val files: List<File>, val delaysMs: List<Int>)
 
+@Keep
 object NativeImageCodec {
     const val FORMAT_AVIF = 1
     const val FORMAT_JXL = 2
