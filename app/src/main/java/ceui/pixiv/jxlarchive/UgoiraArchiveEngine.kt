@@ -64,8 +64,8 @@ object UgoiraArchiveEngine {
                 )
                 val reusableVideo = cached?.video?.takeIf { sourceChoice == UgoiraArchiveSource.CACHED_VIDEO }
                 var relative: String
-                var archivePages: List<String>
-                var archiveBytes: Long
+                var archivePages: List<String> = emptyList()
+                var archiveBytes: Long = 0L
                 var sourceFormat = "UGOIRA"
                 val delays: List<Int>
                 val sourceBytes: Long
