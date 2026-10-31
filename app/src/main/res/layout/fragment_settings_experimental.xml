@@ -196,6 +196,17 @@
                 </RelativeLayout>
 
                 <RelativeLayout
+                    android:id="@+id/ugoira_archive_format_rela"
+                    style="@style/M3SetRow"
+                    android:layout_marginTop="14dp"
+                    android:background="@drawable/wit_row_single">
+                    <LinearLayout style="@style/M3SetTexts" android:layout_marginEnd="130dp">
+                        <TextView style="@style/M3SetTitle" android:text="@string/setting_ugoira_archive_format" />
+                    </LinearLayout>
+                    <TextView android:id="@+id/ugoira_archive_format" style="@style/M3SetValue" />
+                </RelativeLayout>
+
+                <RelativeLayout
                     android:id="@+id/jxl_archive_effort_rela"
                     style="@style/M3SetRow"
                     android:layout_marginTop="14dp"

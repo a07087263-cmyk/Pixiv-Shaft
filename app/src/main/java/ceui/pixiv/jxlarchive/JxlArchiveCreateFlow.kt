@@ -22,7 +22,11 @@ internal fun Fragment.showJxlArchiveDialog(illust: Illust) {
         appContext.getString(R.string.jxl_archive_preparing)
     lifecycleScope.launch {
         try {
-            JxlArchiveEngine.archive(appContext, illust) { done, total ->
+            val operation: suspend (suspend (Int, Int) -> Unit) -> JxlArchiveManifest = { progress ->
+                if (illust.isGif()) UgoiraArchiveEngine.archive(appContext, illust, onProgress = progress)
+                else JxlArchiveEngine.archive(appContext, illust, onProgress = progress)
+            }
+            operation { done, total ->
                 withContext(Dispatchers.Main) {
                     dialog.findViewById<TextView>(R.id.loading_message)?.text =
                         appContext.getString(R.string.jxl_archive_progress, done, total)

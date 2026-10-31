@@ -3872,4 +3872,10 @@
     <string name="jxl_archive_export_success">图片导出完成</string>
     <string name="jxl_archive_export_failed">图片导出失败：%1$s</string>
     <string name="jxl_archive_list_sizes">%1$d 页 · 原图 %2$s → 存档 %3$s（%4$s）</string>
+    <string name="setting_ugoira_archive_format">动图存档格式</string>
+    <string name="ugoira_archive_jxl">JXL 无损</string>
+    <string name="ugoira_archive_av1">AV1/MP4 有损高压缩</string>
+    <string name="ugoira_archive_create">创建动图存档</string>
+    <string name="jxl_archive_export_av1">导出 AV1/MP4</string>
+    <string name="jxl_archive_export_gif">导出 GIF</string>
 </resources>

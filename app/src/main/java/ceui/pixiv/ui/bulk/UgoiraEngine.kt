@@ -15,6 +15,7 @@ import ceui.pixiv.download.StageStore
 import ceui.lisa.utils.AnimatedGifEncoder
 import ceui.lisa.utils.Params
 import ceui.pixiv.ui.interpolate.RifeInterpolator
+import ceui.pixiv.jxlarchive.UgoiraArchivePlayback
 import ceui.pixiv.ui.interpolate.RifePrefs
 import com.blankj.utilcode.util.ZipUtils
 import kotlinx.coroutines.CancellationException
@@ -179,6 +180,36 @@ object UgoiraEngine {
     }
 
     /**
+     * Archive-only source loader: original ZIP frames and metadata delays, never RIFE or MP4.
+     * Existing ZIP/extracted frames are reused under the same per-illust lock as playback.
+     */
+    internal suspend fun loadOriginalFramesForArchive(illust: Illust): UgoiraFrames = withContext(Dispatchers.IO) {
+        fileLockFor(illust.id).withLock {
+            val ctx = Shaft.getContext()
+            val response = fetchMeta(illust.id)
+            val zipUrl = response.ugoira_metadata?.zip_urls?.medium
+                ?: throw IllegalStateException("ugoira zip url missing for illust=${illust.id}")
+            val zipFile = LegacyFile.gifZipFile(ctx, illust)
+            val unzipFolder = LegacyFile.gifUnzipFolder(ctx, illust)
+            val expected = response.ugoira_metadata?.frames?.size ?: 0
+            val existing = sortedUgoiraFrames(unzipFolder)
+            if (existing.isEmpty() || (expected > 0 && existing.size != expected)) {
+                if (!zipFile.isFile || zipFile.length() == 0L) downloadZipTo(zipUrl, zipFile)
+                unzipFolder.listFiles()?.forEach { runCatching { it.delete() } }
+                try {
+                    ZipUtils.unzipFile(zipFile, unzipFolder)
+                } catch (error: Throwable) {
+                    zipFile.delete()
+                    throw error
+                }
+            }
+            val files = sortedUgoiraFrames(unzipFolder)
+            if (files.isEmpty()) throw IllegalStateException("no original ugoira frames")
+            UgoiraFrames(unzipFolder, files, ugoiraDelays(files.size, response), interpolated = false)
+        }
+    }
+
+    /**
      * 保存链路的成品文件。[isVideo] 决定写进用户存储时用哪套 ext/mime;
      * [temporary] 为 true 时调用方**拷完必须删**(它只为这一次保存而生),
      * 为 false 说明这就是播放缓存里的那一份,删了会害得下次重压。
@@ -198,6 +229,35 @@ object UgoiraEngine {
      */
     @JvmStatic
     fun exportForSave(illust: Illust): UgoiraExport? {
+        UgoiraArchivePlayback.load(Shaft.getContext(), illust.id)?.let { archived ->
+            val targetVideo = Shaft.sSettings.isUgoiraSaveAsMp4()
+            if (targetVideo && archived.video != null) {
+                return UgoiraExport(archived.video, isVideo = true, temporary = false)
+            }
+            if (archived.files.isNotEmpty() && (targetVideo || archived.video == null)) {
+                val temp = File(
+                    Shaft.getContext().cacheDir,
+                    "ugoira_archive_save_${illust.id}." + if (targetVideo) "mp4" else "gif",
+                )
+                try {
+                    if (targetVideo) {
+                        runBlocking { UgoiraVideoEncoder.encode(temp, archived.files, archived.delaysMs) }
+                            ?: return null
+                    } else {
+                        BufferedOutputStream(FileOutputStream(temp)).use { out ->
+                            encodeFramesToGif(archived.files, archived.delaysMs, out)
+                        }
+                    }
+                    return UgoiraExport(temp, isVideo = targetVideo, temporary = true)
+                } catch (error: Throwable) {
+                    temp.delete()
+                    Timber.tag(UGOIRA_LOG_TAG).w(error, "[save] 从动图存档生成目标格式失败")
+                    return null
+                }
+            }
+            // A lossy MP4-only archive cannot reconstruct GIF. Let the caller fetch original frames.
+            return null
+        }
         val frames = peekPlayableFrames(illust) ?: return null
         if (Shaft.sSettings.isUgoiraSaveAsMp4()) {
             exportVideo(illust, frames)?.let { return it }
@@ -994,6 +1054,8 @@ data class UgoiraFrames(
     val interpolated: Boolean,
     /** 同目录下压好的 mp4(`video.mp4`);null = 还没压 / 压不出来,回退帧序列播放。 */
     val video: File? = null,
+    /** Unified JXL/AV1 archive playback; never purge it through the online cache healer. */
+    val archived: Boolean = false,
 ) {
     /** 一圈总时长 —— 补帧前后必须相等,播放器靠它做无缝升级;也是 mp4 的循环长度。 */
     val totalMs: Int get() = delaysMs.sum()

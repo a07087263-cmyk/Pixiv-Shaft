@@ -730,7 +730,9 @@ class FragmentIllust : BaseLazyFragment<FragmentIllustBinding>() {
             baseBind.toolbar.menu?.findItem(R.id.action_ai_upscale)?.isVisible = false
             baseBind.toolbar.menu?.findItem(R.id.action_ai_rembg)?.isVisible = false
             baseBind.toolbar.menu?.findItem(R.id.action_show_original)?.isVisible = false
-            baseBind.toolbar.menu?.findItem(R.id.action_jxl_archive)?.isVisible = false
+        }
+        if (illust.isGif()) {
+            baseBind.toolbar.menu?.findItem(R.id.action_jxl_archive)?.setTitle(R.string.ugoira_archive_create)
         }
         baseBind.toolbar.setOnMenuItemClickListener { menuItem ->
             // 读字段而不是闭包捕获的 illust —— 菜单只按「形状」建一次，回调永远拿最新 bean。

@@ -419,6 +419,8 @@ public class Settings {
     private volatile int avifCacheProfile = 1;
     private volatile boolean jxlArchiveOnBookmark = false;
     private volatile int jxlArchiveEffort = 5;
+    /** 0 = lossless animated JXL, 1 = lossy AV1/MP4. Never default to a lossy archive. */
+    private volatile int ugoiraArchiveFormat = 0;
 
     /** 试验性：自动快照总大小上限（MB）；默认等于旧硬编码 200 MB。 */
     private volatile int autoSnapshotMaxMb = AutoSnapshotQuota.DEFAULT_LIMIT_MB;
@@ -1352,6 +1354,14 @@ public class Settings {
 
     public void setJxlArchiveOnBookmark(boolean enabled) {
         this.jxlArchiveOnBookmark = enabled;
+    }
+
+    public boolean isUgoiraArchiveLossy() {
+        return ugoiraArchiveFormat == 1;
+    }
+
+    public void setUgoiraArchiveLossy(boolean lossy) {
+        this.ugoiraArchiveFormat = lossy ? 1 : 0;
     }
 
     public int getJxlArchiveEffort() {

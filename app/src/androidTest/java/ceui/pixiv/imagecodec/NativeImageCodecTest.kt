@@ -32,6 +32,38 @@ class NativeImageCodecTest {
     }
 
     @Test
+    fun animatedJxlPreservesFramesAndDelays() {
+        val inputDir = File(context.cacheDir, "jxl-animation-input").apply { mkdirs() }
+        val outputDir = File(context.cacheDir, "jxl-animation-output")
+        val sources = (0 until 3).map { index ->
+            Bitmap.createBitmap(65, 67, Bitmap.Config.ARGB_8888).apply {
+                for (y in 0 until height) for (x in 0 until width) {
+                    setPixel(x, y, Color.rgb(x * 3 % 256, y * 3 % 256, index * 70 + x + y))
+                }
+            }
+        }
+        val files = sources.mapIndexed { index, bitmap ->
+            File(inputDir, "frame-$index.png").also { file ->
+                file.outputStream().use { bitmap.compress(Bitmap.CompressFormat.PNG, 100, it) }
+            }
+        }
+        val delays = listOf(40, 70, 110)
+        val jxl = File(context.cacheDir, "codec-animation.jxl")
+        NativeImageCodec.encodeJxlAnimation(files, delays, jxl, 5)
+        val decoded = NativeImageCodec.decodeJxlAnimation(jxl, outputDir)
+        assertEquals(delays, decoded.delaysMs)
+        assertEquals(sources.size, decoded.files.size)
+        sources.forEachIndexed { index, source ->
+            val frame = BitmapFactory.decodeFile(decoded.files[index].absolutePath)
+            for (y in 0 until source.height) for (x in 0 until source.width) {
+                assertEquals("frame $index pixel $x,$y", source.getPixel(x, y), frame.getPixel(x, y))
+            }
+            frame.recycle(); source.recycle()
+        }
+        inputDir.deleteRecursively(); outputDir.deleteRecursively(); jxl.delete()
+    }
+
+    @Test
     fun decodedTransparentBitmapCanBeDrawnOnCanvas() {
         val source = sampleBitmap(transparentCorner = true)
         val output = File(context.cacheDir, "codec-test-alpha.jxl")

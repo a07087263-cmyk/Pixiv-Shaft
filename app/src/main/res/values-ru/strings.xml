@@ -3587,4 +3587,10 @@
     <string name="jxl_archive_export_success">Images exported</string>
     <string name="jxl_archive_export_failed">Export failed: %1$s</string>
     <string name="jxl_archive_list_sizes">%1$d pages · Original %2$s → Archive %3$s (%4$s)</string>
+    <string name="setting_ugoira_archive_format">Ugoira archive format</string>
+    <string name="ugoira_archive_jxl">Lossless JXL</string>
+    <string name="ugoira_archive_av1">Lossy AV1/MP4 (smaller)</string>
+    <string name="ugoira_archive_create">Create ugoira archive</string>
+    <string name="jxl_archive_export_av1">Export AV1/MP4</string>
+    <string name="jxl_archive_export_gif">Export GIF</string>
 </resources>

@@ -2,8 +2,12 @@ package ceui.pixiv.imagecodec
 
 import android.graphics.Bitmap
 import java.io.File
+import java.io.FileOutputStream
+import java.io.IOException
 
 /** Native AVIF/JXL entry points. Files are always identified by their signature, never by suffix. */
+data class DecodedJxlAnimation(val files: List<File>, val delaysMs: List<Int>)
+
 object NativeImageCodec {
     const val FORMAT_AVIF = 1
     const val FORMAT_JXL = 2
@@ -33,6 +37,26 @@ object NativeImageCodec {
     @JvmStatic
     private external fun nativeReconstructJpeg(path: String): ByteArray
 
+    @JvmStatic
+    private external fun nativeCreateJxlAnimation(width: Int, height: Int, effort: Int): Long
+
+    @JvmStatic
+    private external fun nativeAddJxlAnimationFrame(handle: Long, bitmap: Bitmap, delayMs: Int, last: Boolean): Boolean
+
+    @JvmStatic
+    private external fun nativeFinishJxlAnimation(handle: Long, path: String)
+
+    @JvmStatic
+    private external fun nativeAbortJxlAnimation(handle: Long)
+
+    @JvmStatic
+    private external fun nativeDecodeJxlAnimation(path: String, outputDir: String): IntArray
+
+    @JvmStatic
+    private fun writeBitmapAsPng(bitmap: Bitmap, path: String): Boolean = runCatching {
+        FileOutputStream(path).use { bitmap.compress(Bitmap.CompressFormat.PNG, 100, it) }
+    }.getOrDefault(false)
+
     fun encodeAvif(bitmap: Bitmap, output: File, crf: Int, preset: Int) {
         check(nativeEncodeAvif(bitmap, output.absolutePath, crf, preset)) { "AVIF encoder returned false" }
     }
@@ -55,6 +79,43 @@ object NativeImageCodec {
     fun canDecode(file: File): Boolean = file.isFile && file.length() > 0 && nativeCanDecodeFile(file.absolutePath)
 
     fun reconstructJpeg(file: File): ByteArray = nativeReconstructJpeg(file.absolutePath)
+
+    fun encodeJxlAnimation(files: List<File>, delaysMs: List<Int>, output: File, effort: Int) {
+        require(files.isNotEmpty() && files.size == delaysMs.size) { "animation frame/delay count mismatch" }
+        val bounds = BitmapFactory.Options().apply { inJustDecodeBounds = true }
+        BitmapFactory.decodeFile(files.first().absolutePath, bounds)
+        require(bounds.outWidth > 0 && bounds.outHeight > 0) { "could not read animation dimensions" }
+        val handle = nativeCreateJxlAnimation(bounds.outWidth, bounds.outHeight, effort.coerceIn(1, 9))
+        check(handle != 0L) { "could not create animated JXL encoder" }
+        var finished = false
+        try {
+            files.forEachIndexed { index, file ->
+                val bitmap = BitmapFactory.decodeFile(file.absolutePath)
+                    ?: throw IOException("could not decode animation frame $index")
+                try {
+                    if (bitmap.width != bounds.outWidth || bitmap.height != bounds.outHeight) {
+                        throw IOException("animation frame dimensions differ at $index")
+                    }
+                    if (!nativeAddJxlAnimationFrame(handle, bitmap, delaysMs[index].coerceAtLeast(1), index == files.lastIndex)) {
+                        throw IOException("could not add animation frame $index")
+                    }
+                } finally {
+                    bitmap.recycle()
+                }
+            }
+            nativeFinishJxlAnimation(handle, output.absolutePath)
+            finished = true
+        } finally {
+            if (!finished) nativeAbortJxlAnimation(handle)
+        }
+    }
+
+    fun decodeJxlAnimation(input: File, outputDir: File): DecodedJxlAnimation {
+        check(outputDir.isDirectory || outputDir.mkdirs()) { "could not create animation decode directory" }
+        outputDir.listFiles()?.forEach { it.delete() }
+        val delays = nativeDecodeJxlAnimation(input.absolutePath, outputDir.absolutePath)
+        return DecodedJxlAnimation(delays.indices.map { File(outputDir, "frame-%08d.png".format(it)) }, delays.toList())
+    }
 
     fun formatOf(input: ByteArray, size: Int = input.size): Int = ImageFormatSniffer.formatOf(input, size)
 

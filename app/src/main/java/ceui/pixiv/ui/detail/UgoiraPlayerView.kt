@@ -43,6 +43,7 @@ import ceui.pixiv.ui.bulk.UgoiraProgress
 import ceui.pixiv.utils.ppppx
 import ceui.pixiv.ui.bulk.UgoiraFrames
 import ceui.pixiv.snapshot.SnapshotManagerFragment
+import ceui.pixiv.jxlarchive.UgoiraArchivePlayback
 import com.bumptech.glide.Glide
 import com.bumptech.glide.load.DataSource
 import com.bumptech.glide.load.engine.GlideException
@@ -531,6 +532,14 @@ class UgoiraPlayerView @JvmOverloads constructor(
         }
         Timber.tag(UGOIRA_LOG_TAG).i("[player] illust=%d startLoad", illust.id)
         job = owner.lifecycleScope.launch {
+            val archived = withContext(Dispatchers.IO) {
+                runCatching { UgoiraArchivePlayback.load(context, illust.id) }.getOrNull()
+            }
+            if (archived != null) {
+                hideOverlay()
+                playFrames(illust, archived)
+                return@launch
+            }
             // 观察引擎共享进度:再进来立刻拿到当前阶段。子协程,页面退出/播放完成随之取消。
             val progressJob = launch {
                 UgoiraEngine.progressOf(illust.id).collect { renderProgress(it) }
@@ -586,7 +595,7 @@ class UgoiraPlayerView @JvmOverloads constructor(
      */
     private fun playFrames(illust: Illust, frames: UgoiraFrames) {
         if (playingDir == frames.dir.path) return
-        if (frames.files.isEmpty()) return
+        if (frames.files.isEmpty() && frames.video == null) return
         downloadInFlight = false
         playingDir = frames.dir.path
         retryButton.isVisible = false
@@ -674,8 +683,15 @@ class UgoiraPlayerView @JvmOverloads constructor(
         if (playingDir != frames.dir.path) return // 过期回调,不动现场
         videoBrokenDir = frames.dir.path
         videoFrames = null
-        Timber.tag(UGOIRA_LOG_TAG).w("[player] illust=%d mp4 解码失败,改播帧序列", illust.id)
-        playFrameSequence(illust, frames)
+        if (frames.files.isEmpty()) {
+            playbackActive = false
+            textureView.isVisible = false
+            retryButton.isVisible = true
+            Timber.tag(UGOIRA_LOG_TAG).w("[player] illust=%d 存档视频解码失败", illust.id)
+        } else {
+            Timber.tag(UGOIRA_LOG_TAG).w("[player] illust=%d mp4 解码失败,改播帧序列", illust.id)
+            playFrameSequence(illust, frames)
+        }
     }
 
     /**
@@ -721,6 +737,12 @@ class UgoiraPlayerView @JvmOverloads constructor(
      */
     private fun onPlaybackBroken(illust: Illust, frames: UgoiraFrames) {
         if (playingDir != frames.dir.path) return // 过期回调(已换版/已停),不动现场
+        if (frames.archived) {
+            playbackActive = false
+            retryButton.isVisible = true
+            Timber.tag(UGOIRA_LOG_TAG).w("[player] illust=%d 动图存档帧解码失败", illust.id)
+            return
+        }
         if (offline != null) {
             // 快照里的帧没有「重下一份」可言,更不能交给引擎 purge —— 那会删掉快照目录。只亮重试。
             Timber.tag(UGOIRA_LOG_TAG).w("[player] illust=%d 快照帧解码失败", illust.id)

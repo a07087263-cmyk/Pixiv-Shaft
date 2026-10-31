@@ -71,11 +71,21 @@ class JxlArchiveActivity : AppCompatActivity() {
     }
 
     private fun showExportDialog(summary: JxlArchiveSummary) {
+        val modes = if (summary.manifest.isAnimation) {
+            if (summary.manifest.pages.single().endsWith(".jxl")) listOf(JxlExportMode.ORIGINAL, JxlExportMode.AV1, JxlExportMode.GIF)
+            else listOf(JxlExportMode.ORIGINAL, JxlExportMode.AV1)
+        } else listOf(JxlExportMode.ORIGINAL, JxlExportMode.PNG)
+        val labels = modes.map { getString(when (it) {
+            JxlExportMode.ORIGINAL -> R.string.jxl_archive_export_original
+            JxlExportMode.PNG -> R.string.jxl_archive_export_png
+            JxlExportMode.AV1 -> R.string.jxl_archive_export_av1
+            JxlExportMode.GIF -> R.string.jxl_archive_export_gif
+        }) }.toTypedArray()
         AlertDialog.Builder(this)
             .setTitle(R.string.jxl_archive_export)
-            .setItems(arrayOf(getString(R.string.jxl_archive_export_original), getString(R.string.jxl_archive_export_png))) { _, which ->
+            .setItems(labels) { _, which ->
                 pendingSummary = summary
-                pendingMode = if (which == 0) JxlExportMode.ORIGINAL else JxlExportMode.PNG
+                pendingMode = modes[which]
                 exportLauncher.launch(JxlArchiveExporter.suggestedName(summary, pendingMode))
             }
             .show()

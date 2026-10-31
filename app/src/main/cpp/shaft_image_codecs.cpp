@@ -3,6 +3,7 @@
 
 #include <algorithm>
 #include <cstdint>
+#include <cstdio>
 #include <cstring>
 #include <fstream>
 #include <memory>
@@ -480,6 +481,175 @@ bool reconstructJpeg(const uint8_t* data, size_t size, std::vector<uint8_t>& out
     }
 }
 
+struct JxlAnimationEncoder {
+    JxlEncoder* encoder = nullptr;
+    uint32_t width = 0;
+    uint32_t height = 0;
+    int effort = 5;
+    size_t frames = 0;
+    std::string error;
+
+    ~JxlAnimationEncoder() { if (encoder != nullptr) JxlEncoderDestroy(encoder); }
+};
+
+JxlAnimationEncoder* createAnimationEncoder(int width, int height, int effort) {
+    std::unique_ptr<JxlAnimationEncoder> state(new JxlAnimationEncoder());
+    state->width = static_cast<uint32_t>(width);
+    state->height = static_cast<uint32_t>(height);
+    state->effort = effort;
+    state->encoder = JxlEncoderCreate(nullptr);
+    if (state->encoder == nullptr) return nullptr;
+    JxlBasicInfo info;
+    JxlEncoderInitBasicInfo(&info);
+    info.xsize = state->width;
+    info.ysize = state->height;
+    info.bits_per_sample = 8;
+    info.exponent_bits_per_sample = 0;
+    info.alpha_bits = 8;
+    info.num_extra_channels = 1;
+    info.orientation = JXL_ORIENT_IDENTITY;
+    info.have_animation = JXL_TRUE;
+    info.animation.tps_numerator = 1000;
+    info.animation.tps_denominator = 1;
+    info.animation.num_loops = 0;
+    JxlColorEncoding color;
+    JxlColorEncodingSetToSRGB(&color, JXL_FALSE);
+    if (JxlEncoderSetBasicInfo(state->encoder, &info) != JXL_ENC_SUCCESS ||
+        JxlEncoderSetColorEncoding(state->encoder, &color) != JXL_ENC_SUCCESS) return nullptr;
+    return state.release();
+}
+
+bool addAnimationFrame(JxlAnimationEncoder* state, const uint8_t* pixels, int delayMs, bool last) {
+    JxlEncoderFrameSettings* settings = JxlEncoderFrameSettingsCreate(state->encoder, nullptr);
+    if (settings == nullptr ||
+        JxlEncoderFrameSettingsSetOption(settings, JXL_ENC_FRAME_SETTING_EFFORT, state->effort) != JXL_ENC_SUCCESS) {
+        state->error = "could not create animation frame settings";
+        return false;
+    }
+    JxlFrameHeader header;
+    JxlEncoderInitFrameHeader(&header);
+    header.duration = static_cast<uint32_t>(std::max(1, delayMs));
+    header.is_last = last ? JXL_TRUE : JXL_FALSE;
+    if (JxlEncoderSetFrameHeader(settings, &header) != JXL_ENC_SUCCESS) {
+        state->error = "could not set animation frame header";
+        return false;
+    }
+    const JxlPixelFormat format = {4, JXL_TYPE_UINT8, JXL_NATIVE_ENDIAN, 0};
+    if (JxlEncoderAddImageFrame(settings, &format, pixels,
+            static_cast<size_t>(state->width) * state->height * 4) != JXL_ENC_SUCCESS) {
+        state->error = "could not add animation frame";
+        return false;
+    }
+    state->frames++;
+    return true;
+}
+
+bool finishAnimationEncoder(JxlAnimationEncoder* state, const std::string& path) {
+    if (state->frames == 0) {
+        state->error = "animation has no frames";
+        return false;
+    }
+    JxlEncoderCloseInput(state->encoder);
+    std::vector<uint8_t> compressed;
+    uint8_t buffer[64 * 1024];
+    while (true) {
+        uint8_t* next = buffer;
+        size_t available = sizeof(buffer);
+        const JxlEncoderStatus status = JxlEncoderProcessOutput(state->encoder, &next, &available);
+        if (status == JXL_ENC_ERROR) {
+            state->error = "animation encoding failed";
+            return false;
+        }
+        compressed.insert(compressed.end(), buffer, buffer + sizeof(buffer) - available);
+        if (status == JXL_ENC_SUCCESS) break;
+        if (status != JXL_ENC_NEED_MORE_OUTPUT) {
+            state->error = "unexpected animation encoder status";
+            return false;
+        }
+    }
+    if (!writeFile(path, compressed.data(), compressed.size())) {
+        state->error = "could not write animated JXL";
+        return false;
+    }
+    return true;
+}
+
+bool decodeAnimationToPngs(const uint8_t* data, size_t size, const std::string& outputDir,
+                           std::vector<int>& delays, std::string& error, JNIEnv* env) {
+    JxlDecoder* decoder = JxlDecoderCreate(nullptr);
+    if (decoder == nullptr) {
+        error = "JxlDecoderCreate failed";
+        return false;
+    }
+    struct Guard { JxlDecoder* value; ~Guard() { JxlDecoderDestroy(value); } } guard{decoder};
+    if (JxlDecoderSubscribeEvents(decoder, JXL_DEC_BASIC_INFO | JXL_DEC_FRAME | JXL_DEC_FULL_IMAGE) != JXL_DEC_SUCCESS ||
+        JxlDecoderSetInput(decoder, data, size) != JXL_DEC_SUCCESS) {
+        error = "could not initialize animated JXL decoder";
+        return false;
+    }
+    JxlDecoderCloseInput(decoder);
+    jclass codec = env->FindClass("ceui/pixiv/imagecodec/NativeImageCodec");
+    jmethodID writePng = env->GetStaticMethodID(codec, "writeBitmapAsPng",
+        "(Landroid/graphics/Bitmap;Ljava/lang/String;)Z");
+    std::vector<uint8_t> pixels;
+    uint32_t duration = 1;
+    int bitmapWidth = 0;
+    int bitmapHeight = 0;
+    int index = 0;
+    while (true) {
+        const JxlDecoderStatus status = JxlDecoderProcessInput(decoder);
+        if (status == JXL_DEC_BASIC_INFO || status == JXL_DEC_FRAME) {
+            if (status == JXL_DEC_FRAME) {
+                JxlFrameHeader header;
+                if (JxlDecoderGetFrameHeader(decoder, &header) == JXL_DEC_SUCCESS) duration = header.duration;
+            }
+        } else if (status == JXL_DEC_NEED_IMAGE_OUT_BUFFER) {
+            JxlBasicInfo info;
+            if (JxlDecoderGetBasicInfo(decoder, &info) != JXL_DEC_SUCCESS) {
+                error = "could not read animation dimensions";
+                return false;
+            }
+            const size_t required = static_cast<size_t>(info.xsize) * info.ysize * 4;
+            pixels.resize(required);
+            bitmapWidth = static_cast<int>(info.xsize);
+            bitmapHeight = static_cast<int>(info.ysize);
+            const JxlPixelFormat format = {4, JXL_TYPE_UINT8, JXL_NATIVE_ENDIAN, 0};
+            if (JxlDecoderSetImageOutBuffer(decoder, &format, pixels.data(), pixels.size()) != JXL_DEC_SUCCESS) {
+                error = "could not set animation output buffer";
+                return false;
+            }
+        } else if (status == JXL_DEC_FULL_IMAGE) {
+            RgbaImage frame;
+            frame.width = static_cast<uint32_t>(bitmapWidth);
+            frame.height = static_cast<uint32_t>(bitmapHeight);
+            frame.pixels = pixels;
+            jobject bitmap = toBitmap(env, frame, 1);
+            if (bitmap == nullptr) {
+                error = "could not create animation Bitmap";
+                return false;
+            }
+            char name[64];
+            std::snprintf(name, sizeof(name), "frame-%08d.png", index);
+            jstring path = env->NewStringUTF((outputDir + "/" + name).c_str());
+            const jboolean written = env->CallStaticBooleanMethod(codec, writePng, bitmap, path);
+            env->DeleteLocalRef(path);
+            env->DeleteLocalRef(bitmap);
+            if (!written || env->ExceptionCheck()) {
+                error = "could not write decoded animation frame";
+                return false;
+            }
+            delays.push_back(static_cast<int>(std::max(1U, duration)));
+            duration = 1;
+            index++;
+        } else if (status == JXL_DEC_SUCCESS) {
+            return !delays.empty();
+        } else if (status == JXL_DEC_ERROR || status == JXL_DEC_NEED_MORE_INPUT) {
+            error = "animated JXL decode failed with status " + std::to_string(status);
+            return false;
+        }
+    }
+}
+
 bool validParams(int value, int min, int max) { return value >= min && value <= max; }
 
 } // namespace
@@ -591,5 +761,67 @@ Java_ceui_pixiv_imagecodec_NativeImageCodec_nativeReconstructJpeg(JNIEnv* env, j
     }
     jbyteArray result = env->NewByteArray(static_cast<jsize>(output.size()));
     env->SetByteArrayRegion(result, 0, static_cast<jsize>(output.size()), reinterpret_cast<const jbyte*>(output.data()));
+    return result;
+}
+
+extern "C" JNIEXPORT jlong JNICALL
+Java_ceui_pixiv_imagecodec_NativeImageCodec_nativeCreateJxlAnimation(JNIEnv* env, jclass, jint width, jint height, jint effort) {
+    if (width <= 0 || height <= 0 || effort < 1 || effort > 9) {
+        throwJava(env, "invalid animation parameters", "java/lang/IllegalArgumentException");
+        return 0;
+    }
+    JxlAnimationEncoder* state = createAnimationEncoder(width, height, effort);
+    if (state == nullptr) {
+        throwJava(env, "could not initialize animated JXL encoder", "java/io/IOException");
+        return 0;
+    }
+    return reinterpret_cast<jlong>(state);
+}
+
+extern "C" JNIEXPORT jboolean JNICALL
+Java_ceui_pixiv_imagecodec_NativeImageCodec_nativeAddJxlAnimationFrame(JNIEnv* env, jclass, jlong handle, jobject bitmap, jint delayMs, jboolean last) {
+    JxlAnimationEncoder* state = reinterpret_cast<JxlAnimationEncoder*>(handle);
+    if (state == nullptr) return JNI_FALSE;
+    LockedBitmap pixels(env, bitmap);
+    if (!pixels.locked || pixels.info.width != state->width || pixels.info.height != state->height) {
+        throwJava(env, "animation frame dimensions do not match", "java/lang/IllegalArgumentException");
+        return JNI_FALSE;
+    }
+    if (!addAnimationFrame(state, static_cast<const uint8_t*>(pixels.pixels), delayMs, last == JNI_TRUE)) {
+        throwJava(env, state->error.c_str(), "java/io/IOException");
+        return JNI_FALSE;
+    }
+    return JNI_TRUE;
+}
+
+extern "C" JNIEXPORT void JNICALL
+Java_ceui_pixiv_imagecodec_NativeImageCodec_nativeFinishJxlAnimation(JNIEnv* env, jclass, jlong handle, jstring path) {
+    std::unique_ptr<JxlAnimationEncoder> state(reinterpret_cast<JxlAnimationEncoder*>(handle));
+    if (!state) return;
+    if (!finishAnimationEncoder(state.get(), jString(env, path))) {
+        throwJava(env, state->error.c_str(), "java/io/IOException");
+    }
+}
+
+extern "C" JNIEXPORT void JNICALL
+Java_ceui_pixiv_imagecodec_NativeImageCodec_nativeAbortJxlAnimation(JNIEnv*, jclass, jlong handle) {
+    delete reinterpret_cast<JxlAnimationEncoder*>(handle);
+}
+
+extern "C" JNIEXPORT jintArray JNICALL
+Java_ceui_pixiv_imagecodec_NativeImageCodec_nativeDecodeJxlAnimation(JNIEnv* env, jclass, jstring path, jstring outputDir) {
+    std::vector<uint8_t> input;
+    if (!readFile(jString(env, path), input)) {
+        throwJava(env, "could not read animated JXL", "java/io/IOException");
+        return nullptr;
+    }
+    std::vector<int> delays;
+    std::string error;
+    if (!decodeAnimationToPngs(input.data(), input.size(), jString(env, outputDir), delays, error, env)) {
+        if (!env->ExceptionCheck()) throwJava(env, error.c_str(), "java/io/IOException");
+        return nullptr;
+    }
+    jintArray result = env->NewIntArray(static_cast<jsize>(delays.size()));
+    env->SetIntArrayRegion(result, 0, static_cast<jsize>(delays.size()), delays.data());
     return result;
 }

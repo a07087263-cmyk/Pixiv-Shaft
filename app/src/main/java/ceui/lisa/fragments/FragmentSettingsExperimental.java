@@ -106,6 +106,19 @@ public class FragmentSettingsExperimental extends SettingsPageFragment<FragmentS
             Common.showToast(getString(R.string.string_428));
         });
         baseBind.jxlArchiveBookmarkRela.setOnClickListener(v -> baseBind.jxlArchiveBookmark.performClick());
+        updateUgoiraArchiveFormatLabel();
+        baseBind.ugoiraArchiveFormatRela.setOnClickListener(v -> {
+            String[] items = new String[]{getString(R.string.ugoira_archive_jxl),
+                    getString(R.string.ugoira_archive_av1)};
+            new WitDialog.CheckableDialogBuilder(mActivity)
+                    .setTitle(R.string.setting_ugoira_archive_format)
+                    .addItems(items, (dialog, which) -> {
+                        Shaft.sSettings.setUgoiraArchiveLossy(which == 1);
+                        Local.setSettings(Shaft.sSettings);
+                        updateUgoiraArchiveFormatLabel();
+                        dialog.dismiss();
+                    }).show();
+        });
         updateJxlEffortLabel();
         baseBind.jxlArchiveEffortRela.setOnClickListener(v -> {
             String[] items = new String[]{getString(R.string.jxl_effort_fast),
@@ -252,6 +265,11 @@ public class FragmentSettingsExperimental extends SettingsPageFragment<FragmentS
                 R.string.avif_profile_small, R.string.avif_profile_extreme};
         int profile = Shaft.sSettings.getAvifCacheProfile();
         baseBind.avifCacheProfile.setText(labels[profile >= 0 && profile < labels.length ? profile : 1]);
+    }
+
+    private void updateUgoiraArchiveFormatLabel() {
+        baseBind.ugoiraArchiveFormat.setText(Shaft.sSettings.isUgoiraArchiveLossy()
+                ? R.string.ugoira_archive_av1 : R.string.ugoira_archive_jxl);
     }
 
     private void updateJxlEffortLabel() {

@@ -29,7 +29,19 @@ straight-alpha RGBA and encoded as lossless JXL. Every page must pass a full nat
 its staging directory is atomically published inside the unified `ShaftSnapshots` library.
 Regular, automatic, and JXL archives check each other and use a cross-codec creation reservation,
 so one artwork cannot acquire three independent copies. Unsupported pages (including 16-bit PNG and oversized images) are kept byte-for-byte in their
-source format instead of aborting the whole archive. ugoira is outside this engine.
+source format instead of aborting the whole archive.
+
+### Ugoira animation archives
+
+The experimental settings offer lossless animated JXL (default) or lossy AV1/MP4. AV1 mode
+reuses a cached MP4 when MP4 playback encoding is enabled; otherwise it encodes from cached or
+original frames. Lossless mode never treats an MP4 or interpolated sequence as its source.
+Archives store per-frame delays and are fully decoded before publication. Detail playback checks
+the unified archive first: MP4 uses the video player, while animated JXL is decoded into cached
+PNG frames for the existing frame-sequence player. Detail downloads reuse these products when the
+currently selected GIF/MP4 target can be produced, and only fetch original frames otherwise.
+JXL animation exports include the original JXL, a newly encoded AV1/MP4, or a regenerated GIF.
+Lossy MP4 archives do not claim original-GIF recovery.
 
 The existing snapshot manager and `JxlArchiveActivity` read the same files. `JxlArchiveViewerActivity`
 displays all pages with the existing Sketch zoom viewer and the native JXL decoder.

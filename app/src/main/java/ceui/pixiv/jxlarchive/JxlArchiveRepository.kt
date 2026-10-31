@@ -22,6 +22,8 @@ data class JxlArchiveManifest(
     val totalSize: Long,
     val originalTotalSize: Long = 0L,
     val sourceFormats: List<String> = emptyList(),
+    val animationDelaysMs: List<Int> = emptyList(),
+    val isAnimation: Boolean = false,
 )
 
 data class JxlArchiveSummary(

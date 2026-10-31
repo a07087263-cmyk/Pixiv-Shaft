@@ -51,16 +51,17 @@ object JxlArchiveEngine {
     private val running = ConcurrentHashMap.newKeySet<Long>()
 
     fun onBookmarkConfirmed(illust: Illust) {
-        if (!Shaft.sSettings.isJxlArchiveOnBookmark || illust.isGif()) return
+        if (!Shaft.sSettings.isJxlArchiveOnBookmark) return
         scope.launch {
             try {
                 val app = Shaft.getContext()
-                if (app.appServices().networkStateManager.networkState.value?.isOnline != true) return@launch
+                if (!illust.isGif() && app.appServices().networkStateManager.networkState.value?.isOnline != true) return@launch
                 if (hasRegularSnapshot(app, illust.id)) {
                     JxlArchiveDiagnostics.failure(illust.id, JxlArchiveException("已有普通离线快照，未重复创建"))
                     return@launch
                 }
-                archive(app, illust, automatic = true)
+                if (illust.isGif()) UgoiraArchiveEngine.archive(app, illust, automatic = true)
+                else archive(app, illust, automatic = true)
                 JxlArchiveDiagnostics.success(illust.id)
                 Timber.tag(TAG).i("archive generated, illustId=%d", illust.id)
             } catch (ce: CancellationException) {
