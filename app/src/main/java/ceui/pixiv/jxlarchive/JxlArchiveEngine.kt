@@ -66,7 +66,7 @@ object JxlArchiveEngine {
                 Timber.tag(TAG).i("archive generated, illustId=%d", illust.id)
             } catch (ce: CancellationException) {
                 throw ce
-            } catch (error: Exception) {
+            } catch (error: Throwable) {
                 JxlArchiveDiagnostics.failure(illust.id, error)
                 Timber.tag(TAG).w(error, "archive failed, illustId=%d", illust.id)
             }

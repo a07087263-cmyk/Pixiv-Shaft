@@ -41,6 +41,7 @@ object UgoiraArchiveEngine {
         withContext(Dispatchers.IO) {
             val app = context.applicationContext
             val id = bean.id
+            JxlArchiveDiagnostics.running(id, "正在准备动图存档")
             if (JxlArchiveRepository.read(app, id) != null) {
                 throw JxlArchiveException("该作品已有收藏存档；如需更换格式，请先删除旧存档")
             }
@@ -74,6 +75,7 @@ object UgoiraArchiveEngine {
                     archiveBytes = File(temp, relative).length()
                     onProgress(1, 1)
                 } else {
+                    JxlArchiveDiagnostics.running(id, "正在读取原始动图帧")
                     val source = cached?.takeIf { sourceChoice == UgoiraArchiveSource.CACHED_FRAMES }
                         ?: UgoiraEngine.loadOriginalFramesForArchive(bean)
                     delays = source.delaysMs
@@ -89,7 +91,9 @@ object UgoiraArchiveEngine {
                     } else {
                         relative = "animation.jxl"
                         val output = File(temp, relative)
+                        JxlArchiveDiagnostics.running(id, "正在编码 JXL 动图：${source.files.size} 帧，effort $animationEffort")
                         NativeImageCodec.encodeJxlAnimation(source.files, source.delaysMs, output, animationEffort)
+                        JxlArchiveDiagnostics.running(id, "JXL 编码完成，正在全帧校验")
                         val verifyDir = File(temp, ".verify")
                         val decoded = NativeImageCodec.decodeJxlAnimation(output, verifyDir)
                         if (decoded.files.size != source.files.size || decoded.delaysMs != source.delaysMs.map { it.coerceAtLeast(1) }) {
@@ -155,6 +159,7 @@ object UgoiraArchiveEngine {
                         totalSize = commonSize,
                     )))
                 }
+                JxlArchiveDiagnostics.running(id, "动图存档校验完成，正在发布")
                 final.deleteRecursively()
                 if (!temp.renameTo(final)) throw JxlArchiveException("发布动图存档失败")
                 JxlArchiveDiagnostics.success(id)

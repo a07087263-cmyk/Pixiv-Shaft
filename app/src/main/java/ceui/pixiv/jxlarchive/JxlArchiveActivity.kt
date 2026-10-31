@@ -26,6 +26,13 @@ class JxlArchiveActivity : AppCompatActivity() {
     private var items: List<JxlArchiveSummary> = emptyList()
     private var pendingSummary: JxlArchiveSummary? = null
     private var pendingMode = JxlExportMode.ORIGINAL
+    private val diagnosticsHandler = android.os.Handler(android.os.Looper.getMainLooper())
+    private val diagnosticsUpdater = object : Runnable {
+        override fun run() {
+            findViewById<TextView>(R.id.diagnostics).text = JxlArchiveDiagnostics.last
+            diagnosticsHandler.postDelayed(this, 1000)
+        }
+    }
     private val exportLauncher = registerForActivityResult(ActivityResultContracts.CreateDocument("*/*")) { uri ->
         val summary = pendingSummary
         if (uri == null || summary == null) return@registerForActivityResult
@@ -58,8 +65,14 @@ class JxlArchiveActivity : AppCompatActivity() {
 
     override fun onResume() {
         super.onResume()
-        findViewById<TextView>(R.id.diagnostics).text = JxlArchiveDiagnostics.last
+        diagnosticsHandler.removeCallbacks(diagnosticsUpdater)
+        diagnosticsHandler.post(diagnosticsUpdater)
         reload()
+    }
+
+    override fun onPause() {
+        diagnosticsHandler.removeCallbacks(diagnosticsUpdater)
+        super.onPause()
     }
 
     private fun reload() {
