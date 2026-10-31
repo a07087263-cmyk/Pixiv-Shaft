@@ -652,6 +652,61 @@ bool decodeAnimationToPngs(const uint8_t* data, size_t size, const std::string& 
     }
 }
 
+struct JxlStreamDecoder {
+    JxlDecoder* decoder = nullptr;
+    std::vector<uint8_t> input;
+    JxlBasicInfo info{};
+    RgbaImage frame;
+    ~JxlStreamDecoder() { if (decoder != nullptr) JxlDecoderDestroy(decoder); }
+};
+
+JxlStreamDecoder* openStreamDecoder(const std::string& path) {
+    std::unique_ptr<JxlStreamDecoder> state(new JxlStreamDecoder());
+    if (!readFile(path, state->input)) return nullptr;
+    state->decoder = JxlDecoderCreate(nullptr);
+    if (state->decoder == nullptr) return nullptr;
+    if (JxlDecoderSubscribeEvents(state->decoder, JXL_DEC_BASIC_INFO | JXL_DEC_FRAME | JXL_DEC_FULL_IMAGE) != JXL_DEC_SUCCESS ||
+        JxlDecoderSetInput(state->decoder, state->input.data(), state->input.size()) != JXL_DEC_SUCCESS) return nullptr;
+    JxlDecoderCloseInput(state->decoder);
+    return state.release();
+}
+
+jobject nextStreamFrame(JNIEnv* env, JxlStreamDecoder* state, std::string& error) {
+    while (true) {
+        const JxlDecoderStatus status = JxlDecoderProcessInput(state->decoder);
+        if (status == JXL_DEC_BASIC_INFO) {
+            if (JxlDecoderGetBasicInfo(state->decoder, &state->info) != JXL_DEC_SUCCESS) {
+                error = "could not read animated JXL info";
+                return nullptr;
+            }
+            state->frame.width = state->info.xsize;
+            state->frame.height = state->info.ysize;
+        } else if (status == JXL_DEC_NEED_IMAGE_OUT_BUFFER) {
+            const size_t bytes = static_cast<size_t>(state->frame.width) * state->frame.height * 4;
+            state->frame.pixels.resize(bytes);
+            const JxlPixelFormat format = {4, JXL_TYPE_UINT8, JXL_NATIVE_ENDIAN, 0};
+            if (JxlDecoderSetImageOutBuffer(state->decoder, &format, state->frame.pixels.data(), bytes) != JXL_DEC_SUCCESS) {
+                error = "could not set streaming JXL output buffer";
+                return nullptr;
+            }
+        } else if (status == JXL_DEC_FULL_IMAGE) {
+            return toBitmap(env, state->frame, 1);
+        } else if (status == JXL_DEC_SUCCESS) {
+            return nullptr;
+        } else if (status == JXL_DEC_ERROR || status == JXL_DEC_NEED_MORE_INPUT) {
+            error = "streaming JXL decode failed with status " + std::to_string(status);
+            return nullptr;
+        }
+    }
+}
+
+bool rewindStreamDecoder(JxlStreamDecoder* state) {
+    JxlDecoderRewind(state->decoder);
+    if (JxlDecoderSetInput(state->decoder, state->input.data(), state->input.size()) != JXL_DEC_SUCCESS) return false;
+    JxlDecoderCloseInput(state->decoder);
+    return true;
+}
+
 bool validParams(int value, int min, int max) { return value >= min && value <= max; }
 
 } // namespace
@@ -826,4 +881,37 @@ Java_ceui_pixiv_imagecodec_NativeImageCodec_nativeDecodeJxlAnimation(JNIEnv* env
     jintArray result = env->NewIntArray(static_cast<jsize>(delays.size()));
     env->SetIntArrayRegion(result, 0, static_cast<jsize>(delays.size()), delays.data());
     return result;
+}
+
+extern "C" JNIEXPORT jlong JNICALL
+Java_ceui_pixiv_imagecodec_NativeImageCodec_nativeOpenJxlAnimation(JNIEnv* env, jclass, jstring path) {
+    JxlStreamDecoder* state = openStreamDecoder(jString(env, path));
+    if (state == nullptr) {
+        throwJava(env, "could not open animated JXL", "java/io/IOException");
+        return 0;
+    }
+    return reinterpret_cast<jlong>(state);
+}
+
+extern "C" JNIEXPORT jobject JNICALL
+Java_ceui_pixiv_imagecodec_NativeImageCodec_nativeNextJxlAnimationFrame(JNIEnv* env, jclass, jlong handle) {
+    JxlStreamDecoder* state = reinterpret_cast<JxlStreamDecoder*>(handle);
+    if (state == nullptr) return nullptr;
+    std::string error;
+    jobject result = nextStreamFrame(env, state, error);
+    if (!error.empty()) throwJava(env, error.c_str(), "java/io/IOException");
+    return result;
+}
+
+extern "C" JNIEXPORT void JNICALL
+Java_ceui_pixiv_imagecodec_NativeImageCodec_nativeRewindJxlAnimation(JNIEnv* env, jclass, jlong handle) {
+    JxlStreamDecoder* state = reinterpret_cast<JxlStreamDecoder*>(handle);
+    if (state == nullptr || !rewindStreamDecoder(state)) {
+        throwJava(env, "could not rewind animated JXL", "java/io/IOException");
+    }
+}
+
+extern "C" JNIEXPORT void JNICALL
+Java_ceui_pixiv_imagecodec_NativeImageCodec_nativeCloseJxlAnimation(JNIEnv*, jclass, jlong handle) {
+    delete reinterpret_cast<JxlStreamDecoder*>(handle);
 }

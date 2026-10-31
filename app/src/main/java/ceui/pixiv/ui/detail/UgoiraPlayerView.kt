@@ -297,6 +297,7 @@ class UgoiraPlayerView @JvmOverloads constructor(
     private var maxContentHeight = 0
     private var fitToViewport = false
     private var player: FrameSequencePlayer? = null
+    private var jxlPlayer: JxlAnimationPlayer? = null
 
     /** mp4 硬解播放器 + 它正在播的那一版(SurfaceTexture 晚于 playFrames 就绪时靠它补开播)。 */
     private var videoPlayer: UgoiraVideoPlayer? = null
@@ -466,6 +467,8 @@ class UgoiraPlayerView @JvmOverloads constructor(
         job = null
         player?.stop()
         player = null
+        jxlPlayer?.stop()
+        jxlPlayer = null
         stopVideo()
         videoFrames = null
         // 收起 TextureView(它的 SurfaceTexture 随之销毁),画面交还给下面的预览图 ——
@@ -573,7 +576,7 @@ class UgoiraPlayerView @JvmOverloads constructor(
                 framesJob.cancel()
                 // 已经播上原速版了就别退回「重试」——补帧失败不该毁掉能看的画面。
                 // 硬解路径下 player 是 null(画面由 videoPlayer 出),两个都要看。
-                val playing = player != null || videoPlayer != null
+                val playing = player != null || jxlPlayer != null || videoPlayer != null
                 if (!playing) {
                     playbackActive = false
                     downloadInFlight = false
@@ -595,19 +598,37 @@ class UgoiraPlayerView @JvmOverloads constructor(
      */
     private fun playFrames(illust: Illust, frames: UgoiraFrames) {
         if (playingDir == frames.dir.path) return
-        if (frames.files.isEmpty() && frames.video == null) return
+        if (frames.files.isEmpty() && frames.video == null && frames.animationJxl == null) return
         downloadInFlight = false
         playingDir = frames.dir.path
         retryButton.isVisible = false
         if (frames.video != null && videoBrokenDir != frames.dir.path) {
             playVideo(illust, frames)
+        } else if (frames.animationJxl != null) {
+            playJxlAnimation(illust, frames)
         } else {
             playFrameSequence(illust, frames)
         }
     }
 
     /** 软解帧序列(回退路径)。 */
+    private fun playJxlAnimation(illust: Illust, frames: UgoiraFrames) {
+        stopVideo()
+        player?.stop()
+        player = null
+        jxlPlayer?.stop()
+        jxlPlayer = JxlAnimationPlayer(
+            frames.animationJxl!!,
+            frames.delaysMs,
+            onFrame = { imageView.setImageBitmap(it) },
+            onError = { onPlaybackBroken(illust, frames) },
+        ).also { it.start() }
+        Timber.tag(UGOIRA_LOG_TAG).i("[player] illust=%d 流式播放 JXL 动图", illust.id)
+    }
+
     private fun playFrameSequence(illust: Illust, frames: UgoiraFrames) {
+        jxlPlayer?.stop()
+        jxlPlayer = null
         stopVideo()
         textureView.isVisible = false
         player?.stop()
@@ -627,6 +648,8 @@ class UgoiraPlayerView @JvmOverloads constructor(
     private fun playVideo(illust: Illust, frames: UgoiraFrames) {
         player?.stop()
         player = null
+        jxlPlayer?.stop()
+        jxlPlayer = null
         stopVideo()
         videoFrames = frames
         textureView.isVisible = true

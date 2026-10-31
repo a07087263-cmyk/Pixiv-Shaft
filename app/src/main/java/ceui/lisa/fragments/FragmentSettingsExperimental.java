@@ -119,6 +119,26 @@ public class FragmentSettingsExperimental extends SettingsPageFragment<FragmentS
                         dialog.dismiss();
                     }).show();
         });
+        updateUgoiraJxlEffortLabel();
+        baseBind.ugoiraJxlEffortRela.setOnClickListener(v -> {
+            String[] items = new String[]{getString(R.string.jxl_effort_balanced),
+                    getString(R.string.jxl_effort_small)};
+            int[] efforts = new int[]{5, 7};
+            new WitDialog.CheckableDialogBuilder(mActivity)
+                    .setTitle(R.string.setting_ugoira_jxl_effort)
+                    .addItems(items, (dialog, which) -> {
+                        Shaft.sSettings.setUgoiraJxlArchiveEffort(efforts[which]);
+                        Local.setSettings(Shaft.sSettings);
+                        updateUgoiraJxlEffortLabel();
+                        dialog.dismiss();
+                    }).show();
+        });
+        baseBind.ugoiraArchiveKeepSmaller.setChecked(Shaft.sSettings.isUgoiraArchiveKeepSmaller());
+        baseBind.ugoiraArchiveKeepSmaller.setOnCheckedChangeListener((buttonView, isChecked) -> {
+            Shaft.sSettings.setUgoiraArchiveKeepSmaller(isChecked);
+            Local.setSettings(Shaft.sSettings);
+        });
+        baseBind.ugoiraArchiveKeepSmallerRela.setOnClickListener(v -> baseBind.ugoiraArchiveKeepSmaller.performClick());
         updateJxlEffortLabel();
         baseBind.jxlArchiveEffortRela.setOnClickListener(v -> {
             String[] items = new String[]{getString(R.string.jxl_effort_fast),
@@ -270,6 +290,11 @@ public class FragmentSettingsExperimental extends SettingsPageFragment<FragmentS
     private void updateUgoiraArchiveFormatLabel() {
         baseBind.ugoiraArchiveFormat.setText(Shaft.sSettings.isUgoiraArchiveLossy()
                 ? R.string.ugoira_archive_av1 : R.string.ugoira_archive_jxl);
+    }
+
+    private void updateUgoiraJxlEffortLabel() {
+        baseBind.ugoiraJxlEffort.setText(Shaft.sSettings.getUgoiraJxlArchiveEffort() >= 7
+                ? R.string.jxl_effort_small : R.string.jxl_effort_balanced);
     }
 
     private void updateJxlEffortLabel() {

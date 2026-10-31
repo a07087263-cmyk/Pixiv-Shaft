@@ -8,6 +8,7 @@ import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertArrayEquals
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -54,6 +55,20 @@ class NativeImageCodecTest {
         val decoded = NativeImageCodec.decodeJxlAnimation(jxl, outputDir)
         assertEquals(delays, decoded.delaysMs)
         assertEquals(sources.size, decoded.files.size)
+        NativeImageCodec.AnimationDecoder(jxl).use { stream ->
+            sources.forEachIndexed { index, source ->
+                val frame = stream.nextFrame() ?: error("missing streamed frame $index")
+                assertEquals(source.width, frame.width)
+                assertEquals(source.height, frame.height)
+                assertEquals(source.getPixel(17, 19), frame.getPixel(17, 19))
+                frame.recycle()
+            }
+            assertNull(stream.nextFrame())
+            stream.rewind()
+            val first = stream.nextFrame() ?: error("missing rewound frame")
+            assertEquals(sources.first().getPixel(17, 19), first.getPixel(17, 19))
+            first.recycle()
+        }
         sources.forEachIndexed { index, source ->
             val frame = BitmapFactory.decodeFile(decoded.files[index].absolutePath)
             for (y in 0 until source.height) for (x in 0 until source.width) {

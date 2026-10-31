@@ -27,6 +27,9 @@ internal fun selectUgoiraArchiveSource(lossy: Boolean, mp4Enabled: Boolean, cach
     return UgoiraArchiveSource.ORIGINAL
 }
 
+internal fun shouldUseOriginalFrames(keepSmaller: Boolean, jxlBytes: Long, originalBytes: Long): Boolean =
+    keepSmaller && originalBytes > 0 && jxlBytes >= originalBytes
+
 /** Animated member of the unified archive library. Lossless JXL and lossy AV1 are explicit modes. */
 object UgoiraArchiveEngine {
     suspend fun archive(
@@ -50,11 +53,16 @@ object UgoiraArchiveEngine {
                 val lossy = Shaft.sSettings.isUgoiraArchiveLossy
                 val sourceChoice = selectUgoiraArchiveSource(lossy, Shaft.sSettings.isUgoiraSaveAsMp4(), cached)
                 val reusableVideo = cached?.video?.takeIf { sourceChoice == UgoiraArchiveSource.CACHED_VIDEO }
-                val relative: String
+                var relative: String
+                var archivePages: List<String>
+                var archiveBytes: Long
+                var sourceFormat = "UGOIRA"
                 val delays: List<Int>
                 val sourceBytes: Long
+                val animationEffort = Shaft.sSettings.ugoiraJxlArchiveEffort
                 if (reusableVideo != null) {
                     relative = "animation.mp4"
+                    archivePages = listOf(relative)
                     delays = cached!!.delaysMs
                     sourceBytes = cached.files.sumOf { it.length() }
                     val output = File(temp, relative)
@@ -63,6 +71,7 @@ object UgoiraArchiveEngine {
                     } catch (_: Throwable) {
                         reusableVideo.copyTo(output, overwrite = true)
                     }
+                    archiveBytes = File(temp, relative).length()
                     onProgress(1, 1)
                 } else {
                     val source = cached?.takeIf { sourceChoice == UgoiraArchiveSource.CACHED_FRAMES }
@@ -71,44 +80,62 @@ object UgoiraArchiveEngine {
                     sourceBytes = source.files.sumOf { it.length() }
                     if (lossy) {
                         relative = "animation.mp4"
+                        archivePages = listOf(relative)
                         val output = File(temp, relative)
                         val encoded = UgoiraVideoEncoder.encode(output, source.files, source.delaysMs) { }
                             ?: throw JxlArchiveException("AV1/H.264 动图存档压制失败")
                         if (!encoded.isFile || encoded.length() == 0L) throw JxlArchiveException("动图视频存档为空")
+                        archiveBytes = encoded.length()
                     } else {
                         relative = "animation.jxl"
                         val output = File(temp, relative)
-                        NativeImageCodec.encodeJxlAnimation(source.files, source.delaysMs, output, Shaft.sSettings.jxlArchiveEffort)
+                        NativeImageCodec.encodeJxlAnimation(source.files, source.delaysMs, output, animationEffort)
                         val verifyDir = File(temp, ".verify")
                         val decoded = NativeImageCodec.decodeJxlAnimation(output, verifyDir)
                         if (decoded.files.size != source.files.size || decoded.delaysMs != source.delaysMs.map { it.coerceAtLeast(1) }) {
                             throw JxlArchiveException("JXL 动图全帧或延时校验失败")
                         }
                         verifyDir.deleteRecursively()
+                        if (shouldUseOriginalFrames(Shaft.sSettings.isUgoiraArchiveKeepSmaller, output.length(), sourceBytes)) {
+                            output.delete()
+                            val frameDir = File(temp, "frames")
+                            check(frameDir.mkdirs()) { "could not create original frame archive" }
+                            archivePages = source.files.mapIndexed { index, file ->
+                                val extension = file.extension.ifBlank { "jpg" }
+                                val path = "frames/%08d.$extension".format(index)
+                                file.copyTo(File(temp, path), overwrite = true)
+                                path
+                            }
+                            relative = archivePages.first()
+                            archiveBytes = archivePages.sumOf { File(temp, it).length() }
+                            sourceFormat = "UGOIRA_FRAMES"
+                        } else {
+                            archivePages = listOf(relative)
+                            archiveBytes = output.length()
+                        }
                         onProgress(1, 1)
                     }
                 }
                 File(temp, "illust.json").writeText(Shaft.sGson.toJson(bean))
                 File(temp, "assets.json").writeText("{}")
-                val archiveFile = File(temp, relative)
                 val manifest = JxlArchiveManifest(
                     illustId = id,
                     title = bean.title,
                     authorName = bean.user?.name,
                     authorId = bean.user?.id,
                     type = "ugoira",
-                    pageCount = 1,
-                    effort = if (lossy) 0 else Shaft.sSettings.jxlArchiveEffort,
-                    pages = listOf(relative),
-                    totalSize = archiveFile.length(),
+                    pageCount = archivePages.size,
+                    effort = if (lossy) 0 else animationEffort,
+                    pages = archivePages,
+                    totalSize = archiveBytes,
                     originalTotalSize = sourceBytes,
-                    sourceFormats = listOf("UGOIRA"),
+                    sourceFormats = listOf(sourceFormat),
                     animationDelaysMs = delays,
                     isAnimation = true,
                 )
                 JxlArchiveRepository.writeManifest(temp, manifest)
                 val snapshotId = JxlArchiveRepository.snapshotId(id)
-                val commonSize = archiveFile.length()
+                val commonSize = archiveBytes
                 if (automatic) {
                     File(temp, AUTO_SNAPSHOT_MANIFEST).writeText(Shaft.sGson.toJson(AutoSnapshotManifest(
                         snapshotId = snapshotId, createdAt = manifest.createdAt, illustId = id,

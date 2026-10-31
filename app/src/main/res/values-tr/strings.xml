@@ -3577,4 +3577,7 @@
     <string name="ugoira_archive_create">Create ugoira archive</string>
     <string name="jxl_archive_export_av1">Export AV1/MP4</string>
     <string name="jxl_archive_export_gif">Export GIF</string>
+    <string name="setting_ugoira_jxl_effort">Ugoira JXL effort</string>
+    <string name="setting_ugoira_keep_smaller">Keep the smaller animation</string>
+    <string name="setting_ugoira_keep_smaller_desc">Store original frames when JXL is larger</string>
 </resources>

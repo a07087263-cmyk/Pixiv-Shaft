@@ -25,6 +25,13 @@ class UgoiraArchivePlanTest {
     }
 
     @Test
+    fun largerJxlFallsBackToOriginalFramesOnlyWhenEnabled() {
+        assertEquals(true, shouldUseOriginalFrames(true, 110, 100))
+        assertEquals(false, shouldUseOriginalFrames(false, 110, 100))
+        assertEquals(false, shouldUseOriginalFrames(true, 90, 100))
+    }
+
+    @Test
     fun noCacheAlwaysUsesOriginalFrames() {
         assertEquals(UgoiraArchiveSource.ORIGINAL, selectUgoiraArchiveSource(true, true, null))
         assertEquals(UgoiraArchiveSource.ORIGINAL, selectUgoiraArchiveSource(false, false, null))

@@ -16,6 +16,7 @@ import ceui.lisa.utils.AnimatedGifEncoder
 import ceui.lisa.utils.Params
 import ceui.pixiv.ui.interpolate.RifeInterpolator
 import ceui.pixiv.jxlarchive.UgoiraArchivePlayback
+import ceui.pixiv.imagecodec.NativeImageCodec
 import ceui.pixiv.ui.interpolate.RifePrefs
 import com.blankj.utilcode.util.ZipUtils
 import kotlinx.coroutines.CancellationException
@@ -233,6 +234,31 @@ object UgoiraEngine {
             val targetVideo = Shaft.sSettings.isUgoiraSaveAsMp4()
             if (targetVideo && archived.video != null) {
                 return UgoiraExport(archived.video, isVideo = true, temporary = false)
+            }
+            if (archived.animationJxl != null) {
+                val frameDir = File(Shaft.getContext().cacheDir, "ugoira_archive_save_frames_${illust.id}")
+                val target = File(
+                    Shaft.getContext().cacheDir,
+                    "ugoira_archive_save_${illust.id}." + if (targetVideo) "mp4" else "gif",
+                )
+                try {
+                    val decoded = NativeImageCodec.decodeJxlAnimation(archived.animationJxl, frameDir)
+                    if (targetVideo) {
+                        runBlocking { UgoiraVideoEncoder.encode(target, decoded.files, decoded.delaysMs) }
+                            ?: return null
+                    } else {
+                        BufferedOutputStream(FileOutputStream(target)).use { out ->
+                            encodeFramesToGif(decoded.files, decoded.delaysMs, out)
+                        }
+                    }
+                    return UgoiraExport(target, isVideo = targetVideo, temporary = true)
+                } catch (error: Throwable) {
+                    target.delete()
+                    Timber.tag(UGOIRA_LOG_TAG).w(error, "[save] 从 JXL 动图生成目标格式失败")
+                    return null
+                } finally {
+                    frameDir.deleteRecursively()
+                }
             }
             if (archived.files.isNotEmpty() && (targetVideo || archived.video == null)) {
                 val temp = File(
@@ -1056,6 +1082,8 @@ data class UgoiraFrames(
     val video: File? = null,
     /** Unified JXL/AV1 archive playback; never purge it through the online cache healer. */
     val archived: Boolean = false,
+    /** Non-null for streaming animated JXL; no PNG expansion is created. */
+    val animationJxl: File? = null,
 ) {
     /** 一圈总时长 —— 补帧前后必须相等,播放器靠它做无缝升级;也是 mp4 的循环长度。 */
     val totalMs: Int get() = delaysMs.sum()

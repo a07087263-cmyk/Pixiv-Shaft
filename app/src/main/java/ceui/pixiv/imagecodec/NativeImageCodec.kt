@@ -5,6 +5,7 @@ import android.graphics.BitmapFactory
 import java.io.File
 import java.io.FileOutputStream
 import java.io.IOException
+import java.io.Closeable
 
 /** Native AVIF/JXL entry points. Files are always identified by their signature, never by suffix. */
 data class DecodedJxlAnimation(val files: List<File>, val delaysMs: List<Int>)
@@ -54,6 +55,18 @@ object NativeImageCodec {
     private external fun nativeDecodeJxlAnimation(path: String, outputDir: String): IntArray
 
     @JvmStatic
+    private external fun nativeOpenJxlAnimation(path: String): Long
+
+    @JvmStatic
+    private external fun nativeNextJxlAnimationFrame(handle: Long): Bitmap?
+
+    @JvmStatic
+    private external fun nativeRewindJxlAnimation(handle: Long)
+
+    @JvmStatic
+    private external fun nativeCloseJxlAnimation(handle: Long)
+
+    @JvmStatic
     private fun writeBitmapAsPng(bitmap: Bitmap, path: String): Boolean = runCatching {
         FileOutputStream(path).use { bitmap.compress(Bitmap.CompressFormat.PNG, 100, it) }
     }.getOrDefault(false)
@@ -76,6 +89,27 @@ object NativeImageCodec {
     }
 
     fun decode(input: ByteArray, sampleSize: Int = 1): Bitmap = nativeDecode(input, sampleSize)
+
+    class AnimationDecoder(file: File) : Closeable {
+        private var handle: Long = nativeOpenJxlAnimation(file.absolutePath)
+
+        fun nextFrame(): Bitmap? {
+            check(handle != 0L) { "decoder is closed" }
+            return nativeNextJxlAnimationFrame(handle)
+        }
+
+        fun rewind() {
+            check(handle != 0L) { "decoder is closed" }
+            nativeRewindJxlAnimation(handle)
+        }
+
+        override fun close() {
+            if (handle != 0L) {
+                nativeCloseJxlAnimation(handle)
+                handle = 0
+            }
+        }
+    }
 
     fun canDecode(file: File): Boolean = file.isFile && file.length() > 0 && nativeCanDecodeFile(file.absolutePath)
 

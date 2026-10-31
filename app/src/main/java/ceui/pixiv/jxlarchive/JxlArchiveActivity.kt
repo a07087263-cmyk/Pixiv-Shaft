@@ -72,7 +72,9 @@ class JxlArchiveActivity : AppCompatActivity() {
 
     private fun showExportDialog(summary: JxlArchiveSummary) {
         val modes = if (summary.manifest.isAnimation) {
-            if (summary.manifest.pages.single().endsWith(".jxl")) listOf(JxlExportMode.ORIGINAL, JxlExportMode.AV1, JxlExportMode.GIF)
+            if (summary.manifest.sourceFormats.firstOrNull() == "UGOIRA_FRAMES" || summary.manifest.pages.single().endsWith(".jxl")) {
+                listOf(JxlExportMode.ORIGINAL, JxlExportMode.AV1, JxlExportMode.GIF)
+            }
             else listOf(JxlExportMode.ORIGINAL, JxlExportMode.AV1)
         } else listOf(JxlExportMode.ORIGINAL, JxlExportMode.PNG)
         val labels = modes.map { getString(when (it) {

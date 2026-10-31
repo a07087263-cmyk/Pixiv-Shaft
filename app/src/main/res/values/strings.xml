@@ -3878,4 +3878,7 @@
     <string name="ugoira_archive_create">创建动图存档</string>
     <string name="jxl_archive_export_av1">导出 AV1/MP4</string>
     <string name="jxl_archive_export_gif">导出 GIF</string>
+    <string name="setting_ugoira_jxl_effort">动图 JXL 压缩档位</string>
+    <string name="setting_ugoira_keep_smaller">保留较小动图产物</string>
+    <string name="setting_ugoira_keep_smaller_desc">JXL 大于原始帧序列时直接保存原始帧</string>
 </resources>

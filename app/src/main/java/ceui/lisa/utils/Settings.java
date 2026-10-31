@@ -421,6 +421,8 @@ public class Settings {
     private volatile int jxlArchiveEffort = 5;
     /** 0 = lossless animated JXL, 1 = lossy AV1/MP4. Never default to a lossy archive. */
     private volatile int ugoiraArchiveFormat = 0;
+    private volatile int ugoiraJxlArchiveEffort = 7;
+    private volatile boolean ugoiraArchiveKeepSmaller = true;
 
     /** 试验性：自动快照总大小上限（MB）；默认等于旧硬编码 200 MB。 */
     private volatile int autoSnapshotMaxMb = AutoSnapshotQuota.DEFAULT_LIMIT_MB;
@@ -1362,6 +1364,22 @@ public class Settings {
 
     public void setUgoiraArchiveLossy(boolean lossy) {
         this.ugoiraArchiveFormat = lossy ? 1 : 0;
+    }
+
+    public int getUgoiraJxlArchiveEffort() {
+        return ugoiraJxlArchiveEffort;
+    }
+
+    public void setUgoiraJxlArchiveEffort(int effort) {
+        this.ugoiraJxlArchiveEffort = effort;
+    }
+
+    public boolean isUgoiraArchiveKeepSmaller() {
+        return ugoiraArchiveKeepSmaller;
+    }
+
+    public void setUgoiraArchiveKeepSmaller(boolean keepSmaller) {
+        this.ugoiraArchiveKeepSmaller = keepSmaller;
     }
 
     public int getJxlArchiveEffort() {

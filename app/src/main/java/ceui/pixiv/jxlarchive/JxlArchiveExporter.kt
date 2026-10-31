@@ -5,7 +5,9 @@ import android.graphics.Bitmap
 import android.net.Uri
 import ceui.pixiv.imagecodec.NativeImageCodec
 import ceui.pixiv.imagecodec.ImageFormatSniffer
+import ceui.pixiv.imagecodec.NativeImageCodec
 import ceui.pixiv.ui.bulk.UgoiraVideoEncoder
+import ceui.pixiv.ui.bulk.UgoiraFrames
 import ceui.pixiv.ui.bulk.encodeFramesToGif
 import java.io.ByteArrayOutputStream
 import java.io.File
@@ -21,9 +23,10 @@ object JxlArchiveExporter {
             ?.takeIf { it.isNotBlank() }
             ?: "archive"
         if (summary.manifest.isAnimation) {
-            val extension = when (mode) {
-                JxlExportMode.AV1 -> "mp4"
-                JxlExportMode.GIF -> "gif"
+            val extension = when {
+                mode == JxlExportMode.AV1 -> "mp4"
+                mode == JxlExportMode.GIF -> "gif"
+                summary.manifest.pages.size > 1 -> "zip"
                 else -> File(summary.directory, summary.manifest.pages.single()).extension
             }
             return "${title}_${summary.manifest.illustId}.$extension"
@@ -63,17 +66,39 @@ object JxlArchiveExporter {
     }
 
     private suspend fun exportAnimation(context: Context, summary: JxlArchiveSummary, uri: Uri, mode: JxlExportMode) {
+        val originalFrames = summary.manifest.sourceFormats.firstOrNull() == "UGOIRA_FRAMES"
+        if (mode == JxlExportMode.ORIGINAL && originalFrames) {
+            context.contentResolver.openOutputStream(uri)?.use { output ->
+                java.util.zip.ZipOutputStream(output).use { zip ->
+                    summary.manifest.pages.forEach { relative ->
+                        val file = File(summary.directory, relative)
+                        zip.putNextEntry(java.util.zip.ZipEntry(file.name))
+                        file.inputStream().use { it.copyTo(zip) }
+                        zip.closeEntry()
+                    }
+                }
+            } ?: throw JxlArchiveException("无法打开导出文件")
+            return
+        }
         val animation = File(summary.directory, summary.manifest.pages.single())
         if (mode == JxlExportMode.ORIGINAL || (mode == JxlExportMode.AV1 && animation.extension == "mp4")) {
             context.contentResolver.openOutputStream(uri)?.use { output -> animation.inputStream().use { it.copyTo(output) } }
                 ?: throw JxlArchiveException("无法打开导出文件")
             return
         }
-        if (mode == JxlExportMode.GIF && animation.extension != "jxl") {
+        if (mode == JxlExportMode.GIF && !originalFrames && animation.extension != "jxl") {
             throw JxlArchiveException("有损 AV1 存档不能恢复原始 GIF；仅支持导出 MP4")
         }
-        val frames = UgoiraArchivePlayback.load(context, summary.manifest.illustId)
+        val archived = UgoiraArchivePlayback.load(context, summary.manifest.illustId)
             ?: throw JxlArchiveException("无法读取动图存档")
+        var temporaryFrames: File? = null
+        val frames = if (archived.animationJxl != null) {
+            val directory = File(context.cacheDir, "jxl-animation-export-${summary.manifest.illustId}")
+            temporaryFrames = directory
+            val decoded = NativeImageCodec.decodeJxlAnimation(archived.animationJxl, directory)
+            UgoiraFrames(directory, decoded.files, decoded.delaysMs, false, archived = true)
+        } else archived
+        try {
         context.contentResolver.openOutputStream(uri)?.use { output ->
             when (mode) {
                 JxlExportMode.GIF -> encodeFramesToGif(frames.files, frames.delaysMs, output)
@@ -90,6 +115,9 @@ object JxlArchiveExporter {
                 else -> throw JxlArchiveException("不支持的动图导出格式")
             }
         } ?: throw JxlArchiveException("无法打开导出文件")
+        } finally {
+            temporaryFrames?.deleteRecursively()
+        }
     }
 
     private data class ExportedPage(val bytes: ByteArray, val extension: String)
