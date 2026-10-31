@@ -42,7 +42,9 @@
 - 详情页优先播放统一存档：JXL 通过 Native 流式逐帧解码播放，AV1/MP4 走视频解码器；详情下载按当前 GIF/MP4 设置尽量从已有存档转换，无法转换才重新下载原始帧。
 - JXL 动图可导出原 JXL、AV1/MP4 或重新生成 GIF；AV1 存档只承诺视频导出，不宣称能恢复原始 GIF。
 
-实现说明见 [AVIF/JXL 图像引擎文档](./docs/avif-jxl-image-engines.md)。
+- 动图 JXL 编码、全帧校验和流式播放均覆盖 Release/R8 测试；详细诊断会记录每个 Native 阶段，转换后若 JXL 更大，是否保留原始帧由“保留较小动图产物”决定。
+
+Release 提供 **arm64-v8a** 与 **armeabi-v7a** 两个独立 APK，请按设备架构安装。实现说明见 [AVIF/JXL 图像引擎文档](./docs/avif-jxl-image-engines.md)。
 
 ---
 
