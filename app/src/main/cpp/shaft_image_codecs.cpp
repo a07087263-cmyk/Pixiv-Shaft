@@ -508,6 +508,7 @@ JxlAnimationEncoder* createAnimationEncoder(int width, int height, int effort) {
     info.alpha_bits = 8;
     info.num_extra_channels = 1;
     info.orientation = JXL_ORIENT_IDENTITY;
+    info.uses_original_profile = JXL_TRUE;
     info.have_animation = JXL_TRUE;
     info.animation.tps_numerator = 1000;
     info.animation.tps_denominator = 1;
@@ -522,6 +523,7 @@ JxlAnimationEncoder* createAnimationEncoder(int width, int height, int effort) {
 bool addAnimationFrame(JxlAnimationEncoder* state, const uint8_t* pixels, int delayMs, bool last) {
     JxlEncoderFrameSettings* settings = JxlEncoderFrameSettingsCreate(state->encoder, nullptr);
     if (settings == nullptr ||
+        JxlEncoderSetFrameLossless(settings, JXL_TRUE) != JXL_ENC_SUCCESS ||
         JxlEncoderFrameSettingsSetOption(settings, JXL_ENC_FRAME_SETTING_EFFORT, state->effort) != JXL_ENC_SUCCESS) {
         state->error = "could not create animation frame settings";
         return false;
