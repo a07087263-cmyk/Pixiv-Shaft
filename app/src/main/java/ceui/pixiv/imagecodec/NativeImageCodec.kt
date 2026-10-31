@@ -1,6 +1,7 @@
 package ceui.pixiv.imagecodec
 
 import android.graphics.Bitmap
+import android.graphics.BitmapFactory
 import java.io.File
 import java.io.FileOutputStream
 import java.io.IOException

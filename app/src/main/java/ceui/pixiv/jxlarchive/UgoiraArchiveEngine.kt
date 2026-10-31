@@ -130,7 +130,7 @@ object UgoiraArchiveEngine {
                 }
                 final.deleteRecursively()
                 if (!temp.renameTo(final)) throw JxlArchiveException("发布动图存档失败")
-                JxlArchiveDiagnostics.success(id, "动图存档成功：${if (lossy) "AV1/MP4" else "JXL"}")
+                JxlArchiveDiagnostics.success(id)
                 manifest
             } finally {
                 temp.deleteRecursively()
