@@ -25,6 +25,7 @@ import java.util.List;
 import java.util.Map;
 
 import ceui.lisa.core.DownloadItem;
+import ceui.lisa.models.ModelObject;
 import ceui.pixiv.api.API;
 import ceui.pixiv.api.model.Illust;
 import ceui.pixiv.cache.ObjectPool;
@@ -249,10 +250,10 @@ public final class AppApiGsonR8InstrumentedTest {
         boolean updated = false;
         for (Method method : ObjectPool.class.getDeclaredMethods()) {
             Class<?>[] parameters = method.getParameterTypes();
-            if (parameters.length == 1 && parameters[0] == Illust.class
-                    && method.getReturnType() == void.class) {
+            if (parameters.length == 2 && parameters[0] == ModelObject.class
+                    && parameters[1] == boolean.class && method.getReturnType() == void.class) {
                 method.setAccessible(true);
-                method.invoke(receiverFor(method), illust);
+                method.invoke(receiverFor(method), illust, false);
                 updated = true;
                 break;
             }
