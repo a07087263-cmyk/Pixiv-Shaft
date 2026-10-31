@@ -1,6 +1,7 @@
 package ceui.pixiv.imagecodec
 
 import android.graphics.Bitmap
+import androidx.annotation.Keep
 import android.graphics.BitmapFactory
 import java.io.File
 import java.io.FileOutputStream
@@ -66,6 +67,7 @@ object NativeImageCodec {
     @JvmStatic
     private external fun nativeCloseJxlAnimation(handle: Long)
 
+    @Keep
     @JvmStatic
     private fun writeBitmapAsPng(bitmap: Bitmap, path: String): Boolean = runCatching {
         FileOutputStream(path).use { bitmap.compress(Bitmap.CompressFormat.PNG, 100, it) }
