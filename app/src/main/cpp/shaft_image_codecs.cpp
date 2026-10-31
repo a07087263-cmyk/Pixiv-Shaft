@@ -520,11 +520,12 @@ JxlAnimationEncoder* createAnimationEncoder(int width, int height, int effort) {
     return state.release();
 }
 
-bool addAnimationFrame(JxlAnimationEncoder* state, const uint8_t* pixels, int delayMs, bool last) {
+bool addAnimationFrame(JxlAnimationEncoder* state, const uint8_t* pixels, size_t stride, int delayMs, bool last) {
     JxlEncoderFrameSettings* settings = JxlEncoderFrameSettingsCreate(state->encoder, nullptr);
     if (settings == nullptr ||
         JxlEncoderSetFrameLossless(settings, JXL_TRUE) != JXL_ENC_SUCCESS ||
-        JxlEncoderFrameSettingsSetOption(settings, JXL_ENC_FRAME_SETTING_EFFORT, state->effort) != JXL_ENC_SUCCESS) {
+        JxlEncoderFrameSettingsSetOption(settings, JXL_ENC_FRAME_SETTING_EFFORT, state->effort) != JXL_ENC_SUCCESS ||
+        JxlEncoderFrameSettingsSetOption(settings, JXL_ENC_FRAME_SETTING_BUFFERING, 3) != JXL_ENC_SUCCESS) {
         state->error = "could not create animation frame settings";
         return false;
     }
@@ -537,8 +538,13 @@ bool addAnimationFrame(JxlAnimationEncoder* state, const uint8_t* pixels, int de
         return false;
     }
     const JxlPixelFormat format = {4, JXL_TYPE_UINT8, JXL_NATIVE_ENDIAN, 0};
-    if (JxlEncoderAddImageFrame(settings, &format, pixels,
-            static_cast<size_t>(state->width) * state->height * 4) != JXL_ENC_SUCCESS) {
+    std::vector<uint8_t> packed(static_cast<size_t>(state->width) * state->height * 4);
+    for (uint32_t y = 0; y < state->height; ++y) {
+        std::memcpy(packed.data() + static_cast<size_t>(y) * state->width * 4,
+                    pixels + static_cast<size_t>(y) * stride,
+                    static_cast<size_t>(state->width) * 4);
+    }
+    if (JxlEncoderAddImageFrame(settings, &format, packed.data(), packed.size()) != JXL_ENC_SUCCESS) {
         state->error = "could not add animation frame";
         return false;
     }
@@ -844,7 +850,7 @@ Java_ceui_pixiv_imagecodec_NativeImageCodec_nativeAddJxlAnimationFrame(JNIEnv* e
         throwJava(env, "animation frame dimensions do not match", "java/lang/IllegalArgumentException");
         return JNI_FALSE;
     }
-    if (!addAnimationFrame(state, static_cast<const uint8_t*>(pixels.pixels), delayMs, last == JNI_TRUE)) {
+    if (!addAnimationFrame(state, static_cast<const uint8_t*>(pixels.pixels), pixels.info.stride, delayMs, last == JNI_TRUE)) {
         throwJava(env, state->error.c_str(), "java/io/IOException");
         return JNI_FALSE;
     }
@@ -853,9 +859,12 @@ Java_ceui_pixiv_imagecodec_NativeImageCodec_nativeAddJxlAnimationFrame(JNIEnv* e
 
 extern "C" JNIEXPORT void JNICALL
 Java_ceui_pixiv_imagecodec_NativeImageCodec_nativeFinishJxlAnimation(JNIEnv* env, jclass, jlong handle, jstring path) {
-    std::unique_ptr<JxlAnimationEncoder> state(reinterpret_cast<JxlAnimationEncoder*>(handle));
-    if (!state) return;
-    if (!finishAnimationEncoder(state.get(), jString(env, path))) {
+    JxlAnimationEncoder* state = reinterpret_cast<JxlAnimationEncoder*>(handle);
+    if (state == nullptr) return;
+    if (finishAnimationEncoder(state, jString(env, path))) {
+        delete state;
+    } else {
+        // Kotlin's finally block aborts the still-owned handle on failure. Never free it twice.
         throwJava(env, state->error.c_str(), "java/io/IOException");
     }
 }

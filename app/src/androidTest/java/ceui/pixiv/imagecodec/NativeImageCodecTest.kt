@@ -13,6 +13,7 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 import org.junit.runner.RunWith
 import java.io.File
+import java.io.IOException
 
 @RunWith(AndroidJUnit4::class)
 class NativeImageCodecTest {
@@ -76,6 +77,13 @@ class NativeImageCodecTest {
             }
             frame.recycle(); source.recycle()
         }
+        var writeFailed = false
+        try {
+            NativeImageCodec.encodeJxlAnimation(files, delays, File(inputDir, "missing/out.jxl"), 5)
+        } catch (_: IOException) {
+            writeFailed = true
+        }
+        assertTrue("invalid output must fail without a native double-free", writeFailed)
         inputDir.deleteRecursively(); outputDir.deleteRecursively(); jxl.delete()
     }
 
