@@ -119,32 +119,26 @@ object UgoiraArchiveEngine {
                         android.graphics.BitmapFactory.decodeFile(source.files.first().absolutePath, bounds)
                         val framePixels = bounds.outWidth.toLong() * bounds.outHeight
                         val totalPixels = framePixels * source.files.size
-                        val pixelBudget = (Runtime.getRuntime().maxMemory() / 32).coerceIn(8_000_000L, 32_000_000L)
-                        JxlArchiveDiagnostics.checkpoint("JXL pixel budget id=$id framePixels=$framePixels totalPixels=$totalPixels budget=$pixelBudget")
-                        if (framePixels <= 0L || totalPixels > pixelBudget) {
-                            JxlArchiveDiagnostics.running(id, "动图共 $totalPixels 像素，超过 JXL 内存预算，保留原始帧")
+                        JxlArchiveDiagnostics.checkpoint("JXL pixel metrics id=$id framePixels=$framePixels totalPixels=$totalPixels")
+                        JxlArchiveDiagnostics.running(id, "正在编码 JXL 动图：${source.files.size} 帧，effort $animationEffort")
+                        NativeImageCodec.encodeJxlAnimation(source.files, source.delaysMs, output, animationEffort) {
+                            JxlArchiveDiagnostics.checkpoint("id=$id $it")
+                        }
+                        JxlArchiveDiagnostics.running(id, "JXL 编码完成，正在全帧校验")
+                        val verifyDir = File(temp, ".verify")
+                        val decoded = NativeImageCodec.decodeJxlAnimation(output, verifyDir) {
+                            JxlArchiveDiagnostics.checkpoint("id=$id verify $it")
+                        }
+                        if (decoded.files.size != source.files.size || decoded.delaysMs != source.delaysMs.map { it.coerceAtLeast(1) }) {
+                            throw JxlArchiveException("JXL 动图全帧或延时校验失败")
+                        }
+                        verifyDir.deleteRecursively()
+                        JxlArchiveDiagnostics.checkpoint("JXL size decision id=$id jxlBytes=${output.length()} sourceBytes=$sourceBytes")
+                        if (shouldUseOriginalFrames(Shaft.sSettings.isUgoiraArchiveKeepSmaller, output.length(), sourceBytes)) {
                             keepOriginalFrames()
                         } else {
-                            JxlArchiveDiagnostics.running(id, "正在编码 JXL 动图：${source.files.size} 帧，effort $animationEffort")
-                            NativeImageCodec.encodeJxlAnimation(source.files, source.delaysMs, output, animationEffort) {
-                                JxlArchiveDiagnostics.checkpoint("id=$id $it")
-                            }
-                            JxlArchiveDiagnostics.running(id, "JXL 编码完成，正在全帧校验")
-                            val verifyDir = File(temp, ".verify")
-                            val decoded = NativeImageCodec.decodeJxlAnimation(output, verifyDir) {
-                                JxlArchiveDiagnostics.checkpoint("id=$id verify $it")
-                            }
-                            if (decoded.files.size != source.files.size || decoded.delaysMs != source.delaysMs.map { it.coerceAtLeast(1) }) {
-                                throw JxlArchiveException("JXL 动图全帧或延时校验失败")
-                            }
-                            verifyDir.deleteRecursively()
-                            JxlArchiveDiagnostics.checkpoint("JXL size decision id=$id jxlBytes=${output.length()} sourceBytes=$sourceBytes")
-                            if (shouldUseOriginalFrames(Shaft.sSettings.isUgoiraArchiveKeepSmaller, output.length(), sourceBytes)) {
-                                keepOriginalFrames()
-                            } else {
-                                archivePages = listOf(relative)
-                                archiveBytes = output.length()
-                            }
+                            archivePages = listOf(relative)
+                            archiveBytes = output.length()
                         }
                         onProgress(1, 1)
                     }
