@@ -3596,4 +3596,6 @@
     <string name="setting_ugoira_jxl_effort">Ugoira JXL effort</string>
     <string name="setting_ugoira_keep_smaller">Keep the smaller animation</string>
     <string name="setting_ugoira_keep_smaller_desc">Store original frames when JXL is larger</string>
+    <string name="jxl_archive_detailed_log">Detailed JXL diagnostics (tap to copy)</string>
+    <string name="jxl_archive_copy_log">Copy log</string>
 </resources>

@@ -41,7 +41,12 @@ object UgoiraArchiveEngine {
         withContext(Dispatchers.IO) {
             val app = context.applicationContext
             val id = bean.id
+            val startedAt = android.os.SystemClock.elapsedRealtime()
             JxlArchiveDiagnostics.running(id, "正在准备动图存档")
+            JxlArchiveDiagnostics.checkpoint(
+                "archive start id=$id type=${bean.type} maxMemory=${Runtime.getRuntime().maxMemory()} " +
+                    "freeMemory=${Runtime.getRuntime().freeMemory()} automatic=$automatic",
+            )
             if (JxlArchiveRepository.read(app, id) != null) {
                 throw JxlArchiveException("该作品已有收藏存档；如需更换格式，请先删除旧存档")
             }
@@ -53,6 +58,10 @@ object UgoiraArchiveEngine {
                 val cached = UgoiraEngine.peekPlayableFrames(bean)
                 val lossy = Shaft.sSettings.isUgoiraArchiveLossy
                 val sourceChoice = selectUgoiraArchiveSource(lossy, Shaft.sSettings.isUgoiraSaveAsMp4(), cached)
+                JxlArchiveDiagnostics.checkpoint(
+                    "source plan id=$id lossy=$lossy mp4Setting=${Shaft.sSettings.isUgoiraSaveAsMp4()} " +
+                        "choice=$sourceChoice cachedFrames=${cached?.files?.size} cachedVideoBytes=${cached?.video?.length()}",
+                )
                 val reusableVideo = cached?.video?.takeIf { sourceChoice == UgoiraArchiveSource.CACHED_VIDEO }
                 var relative: String
                 var archivePages: List<String>
@@ -105,24 +114,31 @@ object UgoiraArchiveEngine {
                             archiveBytes = archivePages.sumOf { File(temp, it).length() }
                             sourceFormat = "UGOIRA_FRAMES"
                         }
+                        JxlArchiveDiagnostics.checkpoint("JXL source ready id=$id frames=${source.files.size} delays=${source.delaysMs.size} sourceBytes=$sourceBytes")
                         val bounds = android.graphics.BitmapFactory.Options().apply { inJustDecodeBounds = true }
                         android.graphics.BitmapFactory.decodeFile(source.files.first().absolutePath, bounds)
                         val framePixels = bounds.outWidth.toLong() * bounds.outHeight
                         val totalPixels = framePixels * source.files.size
                         val pixelBudget = (Runtime.getRuntime().maxMemory() / 32).coerceIn(8_000_000L, 32_000_000L)
+                        JxlArchiveDiagnostics.checkpoint("JXL pixel budget id=$id framePixels=$framePixels totalPixels=$totalPixels budget=$pixelBudget")
                         if (framePixels <= 0L || totalPixels > pixelBudget) {
                             JxlArchiveDiagnostics.running(id, "动图共 $totalPixels 像素，超过 JXL 内存预算，保留原始帧")
                             keepOriginalFrames()
                         } else {
                             JxlArchiveDiagnostics.running(id, "正在编码 JXL 动图：${source.files.size} 帧，effort $animationEffort")
-                            NativeImageCodec.encodeJxlAnimation(source.files, source.delaysMs, output, animationEffort)
+                            NativeImageCodec.encodeJxlAnimation(source.files, source.delaysMs, output, animationEffort) {
+                                JxlArchiveDiagnostics.checkpoint("id=$id $it")
+                            }
                             JxlArchiveDiagnostics.running(id, "JXL 编码完成，正在全帧校验")
                             val verifyDir = File(temp, ".verify")
-                            val decoded = NativeImageCodec.decodeJxlAnimation(output, verifyDir)
+                            val decoded = NativeImageCodec.decodeJxlAnimation(output, verifyDir) {
+                                JxlArchiveDiagnostics.checkpoint("id=$id verify $it")
+                            }
                             if (decoded.files.size != source.files.size || decoded.delaysMs != source.delaysMs.map { it.coerceAtLeast(1) }) {
                                 throw JxlArchiveException("JXL 动图全帧或延时校验失败")
                             }
                             verifyDir.deleteRecursively()
+                            JxlArchiveDiagnostics.checkpoint("JXL size decision id=$id jxlBytes=${output.length()} sourceBytes=$sourceBytes")
                             if (shouldUseOriginalFrames(Shaft.sSettings.isUgoiraArchiveKeepSmaller, output.length(), sourceBytes)) {
                                 keepOriginalFrames()
                             } else {
@@ -173,11 +189,17 @@ object UgoiraArchiveEngine {
                     )))
                 }
                 JxlArchiveDiagnostics.running(id, "动图存档校验完成，正在发布")
+                JxlArchiveDiagnostics.checkpoint("publish id=$id pages=${manifest.pageCount} bytes=$commonSize temp=${temp.name}")
                 final.deleteRecursively()
                 if (!temp.renameTo(final)) throw JxlArchiveException("发布动图存档失败")
                 JxlArchiveDiagnostics.success(id)
+                JxlArchiveDiagnostics.checkpoint("archive success id=$id elapsedMs=${android.os.SystemClock.elapsedRealtime() - startedAt}")
                 manifest
+            } catch (error: Throwable) {
+                JxlArchiveDiagnostics.failure(id, error)
+                throw error
             } finally {
+                JxlArchiveDiagnostics.checkpoint("archive finally id=$id elapsedMs=${android.os.SystemClock.elapsedRealtime() - startedAt} tempExists=${temp.exists()}")
                 temp.deleteRecursively()
                 ArchiveReservation.release(id)
             }

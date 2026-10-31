@@ -115,40 +115,56 @@ object NativeImageCodec {
 
     fun reconstructJpeg(file: File): ByteArray = nativeReconstructJpeg(file.absolutePath)
 
-    fun encodeJxlAnimation(files: List<File>, delaysMs: List<Int>, output: File, effort: Int) {
+    fun encodeJxlAnimation(
+        files: List<File>,
+        delaysMs: List<Int>,
+        output: File,
+        effort: Int,
+        onCheckpoint: (String) -> Unit = {},
+    ) {
+        onCheckpoint("encodeJxlAnimation enter frames=${files.size} effort=$effort outputBytes=${output.length()}")
         require(files.isNotEmpty() && files.size == delaysMs.size) { "animation frame/delay count mismatch" }
         val bounds = BitmapFactory.Options().apply { inJustDecodeBounds = true }
         BitmapFactory.decodeFile(files.first().absolutePath, bounds)
         require(bounds.outWidth > 0 && bounds.outHeight > 0) { "could not read animation dimensions" }
+        onCheckpoint("nativeCreateJxlAnimation enter ${bounds.outWidth}x${bounds.outHeight}")
         val handle = nativeCreateJxlAnimation(bounds.outWidth, bounds.outHeight, effort.coerceIn(1, 9))
         check(handle != 0L) { "could not create animated JXL encoder" }
+        onCheckpoint("nativeCreateJxlAnimation ok handle=$handle")
         var finished = false
         try {
             files.forEachIndexed { index, file ->
+                onCheckpoint("decode source frame $index/${files.size} bytes=${file.length()}")
                 val bitmap = BitmapFactory.decodeFile(file.absolutePath)
                     ?: throw IOException("could not decode animation frame $index")
                 try {
                     if (bitmap.width != bounds.outWidth || bitmap.height != bounds.outHeight) {
                         throw IOException("animation frame dimensions differ at $index")
                     }
+                    onCheckpoint("nativeAddJxlAnimationFrame enter index=$index delay=${delaysMs[index]} ${bitmap.width}x${bitmap.height}")
                     if (!nativeAddJxlAnimationFrame(handle, bitmap, delaysMs[index].coerceAtLeast(1), index == files.lastIndex)) {
                         throw IOException("could not add animation frame $index")
                     }
+                    onCheckpoint("nativeAddJxlAnimationFrame ok index=$index")
                 } finally {
                     bitmap.recycle()
                 }
             }
+            onCheckpoint("nativeFinishJxlAnimation enter frames=${files.size}")
             nativeFinishJxlAnimation(handle, output.absolutePath)
             finished = true
+            onCheckpoint("nativeFinishJxlAnimation ok bytes=${output.length()}")
         } finally {
             if (!finished) nativeAbortJxlAnimation(handle)
         }
     }
 
-    fun decodeJxlAnimation(input: File, outputDir: File): DecodedJxlAnimation {
+    fun decodeJxlAnimation(input: File, outputDir: File, onCheckpoint: (String) -> Unit = {}): DecodedJxlAnimation {
+        onCheckpoint("decodeJxlAnimation enter inputBytes=${input.length()} outputDir=${outputDir.name}")
         check(outputDir.isDirectory || outputDir.mkdirs()) { "could not create animation decode directory" }
         outputDir.listFiles()?.forEach { it.delete() }
         val delays = nativeDecodeJxlAnimation(input.absolutePath, outputDir.absolutePath)
+        onCheckpoint("decodeJxlAnimation ok frames=${delays.size}")
         return DecodedJxlAnimation(delays.indices.map { File(outputDir, "frame-%08d.png".format(it)) }, delays.toList())
     }
 

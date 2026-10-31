@@ -50,6 +50,7 @@ class JxlArchiveActivity : AppCompatActivity() {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_jxl_archive)
         findViewById<androidx.appcompat.widget.Toolbar>(R.id.toolbar).setNavigationOnClickListener { finish() }
+        findViewById<TextView>(R.id.diagnostics).setOnClickListener { showDiagnosticsLog() }
         findViewById<RecyclerView>(R.id.archive_list).apply {
             layoutManager = LinearLayoutManager(this@JxlArchiveActivity)
             adapter = this@JxlArchiveActivity.adapter
@@ -73,6 +74,19 @@ class JxlArchiveActivity : AppCompatActivity() {
     override fun onPause() {
         diagnosticsHandler.removeCallbacks(diagnosticsUpdater)
         super.onPause()
+    }
+
+    private fun showDiagnosticsLog() {
+        AlertDialog.Builder(this)
+            .setTitle(R.string.jxl_archive_detailed_log)
+            .setMessage(JxlArchiveDiagnostics.recentLog())
+            .setNegativeButton(android.R.string.cancel, null)
+            .setPositiveButton(R.string.jxl_archive_copy_log) { _, _ ->
+                val clipboard = getSystemService(android.content.ClipboardManager::class.java)
+                clipboard.setPrimaryClip(android.content.ClipData.newPlainText("JXL diagnostics", JxlArchiveDiagnostics.recentLog()))
+                Common.showToast(getString(R.string.jxl_archive_export_success))
+            }
+            .show()
     }
 
     private fun reload() {
